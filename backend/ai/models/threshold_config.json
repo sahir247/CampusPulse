@@ -1,0 +1,51 @@
+{
+  "calibrated_threshold": 0.6,
+  "target_metric": "F1",
+  "best_f1": 0.6341,
+  "calibration_table": [
+    {
+      "threshold": 0.6,
+      "precision": 0.9286,
+      "recall": 0.4815,
+      "f1": 0.6341
+    },
+    {
+      "threshold": 0.65,
+      "precision": 1.0,
+      "recall": 0.4444,
+      "f1": 0.6154
+    },
+    {
+      "threshold": 0.7,
+      "precision": 1.0,
+      "recall": 0.3704,
+      "f1": 0.5405
+    },
+    {
+      "threshold": 0.75,
+      "precision": 1.0,
+      "recall": 0.1852,
+      "f1": 0.3125
+    },
+    {
+      "threshold": 0.8,
+      "precision": 1.0,
+      "recall": 0.1111,
+      "f1": 0.2
+    },
+    {
+      "threshold": 0.85,
+      "precision": 1.0,
+      "recall": 0.037,
+      "f1": 0.0714
+    },
+    {
+      "threshold": 0.9,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    }
+  ],
+  "sample_count": 43,
+  "model_name": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+}

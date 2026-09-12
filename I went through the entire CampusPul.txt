@@ -1,0 +1,2121 @@
+I went through the entire **CampusPulse** deck, including the architecture and pipeline diagrams, rather than treating the current architecture as something to copy blindly.
+
+The deck gives us a clear product idea, but some implementation decisions are still unspecified. So below I’ll separate **what the deck explicitly defines** from the **architecture choices I recommend after reasoning about scale, ML requirements, reliability, and implementation effort**.
+
+The core source flow is: natural-language complaint → NLP preprocessing → classification → clustering → prioritization/routing → Jira/Slack → admin dashboard → campus response teams → feedback loop.  
+
+# 1. What CampusPulse actually is
+
+CampusPulse should **not** be designed as just a complaint-management CRUD application.
+
+Its real pipeline is:
+
+**Unstructured student complaints → AI understanding → issue consolidation → severity/priority → responsible team → operational ticket → resolution → learning**
+
+That distinction is important.
+
+The deck identifies four underlying problems:
+
+* complaints are distributed across channels,
+* staff manually categorize them,
+* duplicate complaints create noise,
+* urgent issues are mixed with routine issues. 
+
+Therefore the system's most important backend entity should not simply be a `Complaint`.
+
+It should revolve around an **Issue/Case**.
+
+For example:
+
+> 37 students report "no water in Block C"
+
+should become:
+
+```text
+37 complaints
+        ↓
+1 underlying issue
+        ↓
+ISSUE-2026-00421
+        ↓
+Hostel / Maintenance Team
+        ↓
+High/Critical priority
+        ↓
+1 Jira ticket
+```
+
+The deck explicitly describes this duplicate-to-one-issue concept. 
+
+---
+
+# 2. Recommended high-level architecture
+
+I would **not** build this as microservices.
+
+For a campus system at the scale shown in the deck — roughly hundreds of complaints/month — Kubernetes, Kafka, separate ML services, API gateways, etc. would add complexity without solving a real problem.
+
+Instead, use a:
+
+## Modular Monolith + Background AI Worker
+
+```text
+                         ┌───────────────────────┐
+                         │     Student Web App   │
+                         │  Complaint Submission  │
+                         └───────────┬───────────┘
+                                     │
+                                     ▼
+                         ┌───────────────────────┐
+                         │       FastAPI API      │
+                         │ Authentication / REST  │
+                         └───────────┬───────────┘
+                                     │
+                    ┌────────────────┴────────────────┐
+                    │                                 │
+                    ▼                                 ▼
+          ┌───────────────────┐              ┌─────────────────┐
+          │ PostgreSQL        │              │ Redis / Queue   │
+          │ complaints        │              │ AI Jobs         │
+          │ issues            │              └────────┬────────┘
+          │ users             │                       │
+          │ cases             │                       ▼
+          │ audit logs        │             ┌──────────────────┐
+          └───────────────────┘             │   AI Worker      │
+                                            │                  │
+                                            │ NLP preprocessing│
+                                            │ Embedding        │
+                                            │ Classification   │
+                                            │ Deduplication    │
+                                            │ Urgency          │
+                                            │ Priority         │
+                                            └────────┬─────────┘
+                                                     │
+                                  ┌──────────────────┼────────────────┐
+                                  │                  │                │
+                                  ▼                  ▼                ▼
+                           PostgreSQL          Jira API         Slack API
+                                  │                  │                │
+                                  └──────────┬───────┴────────────────┘
+                                             │
+                                             ▼
+                                  ┌────────────────────┐
+                                  │   Admin Dashboard  │
+                                  │                    │
+                                  │ Issues             │
+                                  │ Priority           │
+                                  │ Categories         │
+                                  │ Hotspots            │
+                                  │ Resolution status │
+                                  └────────────────────┘
+```
+
+This retains everything the deck promises while keeping the implementation realistic.
+
+---
+
+# 3. Why this architecture makes sense
+
+## Why PostgreSQL?
+
+The system is highly relational.
+
+We have:
+
+```text
+Student
+   ↓
+Complaint
+   ↓
+Issue / Cluster
+   ↓
+Jira Case
+   ↓
+Team
+   ↓
+Status
+   ↓
+Resolution
+```
+
+We also need filtering such as:
+
+```text
+category = electricity
+priority = critical
+status = pending
+location = hostel block C
+created_at > ...
+```
+
+A relational database handles this naturally.
+
+### Recommended
+
+**PostgreSQL**
+
+And use **pgvector** for embeddings.
+
+That gives us both:
+
+```text
+normal relational database
++
+vector similarity search
+```
+
+without introducing a separate vector database.
+
+At this project size, a dedicated vector DB would be unnecessary.
+
+---
+
+# 4. Why FastAPI
+
+The system has two fundamentally different workloads:
+
+```text
+normal API operations
+        +
+ML processing
+```
+
+FastAPI works well for the API layer because Python lets us directly integrate:
+
+```text
+FastAPI
+   ↓
+NLP libraries
+   ↓
+sentence-transformers
+   ↓
+scikit-learn
+```
+
+That avoids creating a separate Node/Python architecture.
+
+The frontend can still be React/Next.js.
+
+---
+
+# 5. Why a background worker is necessary
+
+This is one of the most important architecture decisions.
+
+Don't do:
+
+```text
+POST /complaint
+
+→ preprocess
+→ embedding
+→ classification
+→ clustering
+→ priority
+→ Jira
+→ Slack
+→ return response
+```
+
+That could make the student wait while every ML and external API operation executes.
+
+Instead:
+
+```text
+POST complaint
+        │
+        ▼
+save raw complaint
+        │
+        ▼
+return "Complaint received"
+        │
+        ▼
+queue AI processing
+        │
+        ▼
+AI worker
+```
+
+So the student's request finishes quickly.
+
+### Flow
+
+```text
+Student
+  │
+  │ submit
+  ▼
+FastAPI
+  │
+  ├── save complaint
+  │
+  └── enqueue AI job
+          │
+          ▼
+       Redis
+          │
+          ▼
+      AI Worker
+```
+
+Redis + Celery/RQ is enough.
+
+No Kafka.
+
+---
+
+# 6. Complete end-to-end flow
+
+## FLOW A — Student submits complaint
+
+Student opens:
+
+```text
+CampusPulse
+```
+
+and sees something simple:
+
+```text
+What's wrong?
+
+"No water in Block C since morning."
+```
+
+Optional:
+
+```text
+Location
+[Block C]
+
+Photo
+[Upload]
+
+Submit
+```
+
+The key idea from the deck is that students shouldn't need to manually select complicated categories. 
+
+### Backend request
+
+```json
+{
+  "text": "No water in Block C since morning",
+  "location_id": "BLOCK_C",
+  "attachment": null
+}
+```
+
+Backend generates:
+
+```text
+complaint_id = CMP-8F92A
+created_at
+student_id
+source = web
+status = PROCESSING
+```
+
+---
+
+# 7. FLOW B — NLP preprocessing
+
+Worker receives:
+
+```text
+"No water in Block C since morning"
+```
+
+Preprocessing:
+
+```text
+lowercase
+      ↓
+clean text
+      ↓
+normalize
+      ↓
+remove irrelevant noise
+      ↓
+embedding
+```
+
+Example conceptual result:
+
+```text
+input:
+"No water in Block C since morning"
+
+embedding:
+[0.182, -0.043, 0.791, ...]
+```
+
+The deck explicitly calls for tokenization, cleaning and embeddings. 
+
+---
+
+# 8. FLOW C — Classification
+
+Now determine the category.
+
+Example:
+
+```text
+Category:
+HOSTEL / WATER
+
+Confidence:
+0.96
+```
+
+The deck's categories include areas such as electricity, food, hostel, sanitation, academics and security. 
+
+### Recommended implementation
+
+For the first version, don't train a huge custom transformer.
+
+Use:
+
+```text
+Sentence Transformer
+        +
+small classifier
+```
+
+For example:
+
+```text
+Text
+ ↓
+Embedding model
+ ↓
+Logistic Regression / Linear SVM
+ ↓
+Category
+```
+
+This is much lighter than fine-tuning a large language model.
+
+---
+
+# 9. FLOW D — Location extraction
+
+The hotspot feature creates an implementation requirement that the deck doesn't fully specify.
+
+We need to know:
+
+```text
+Where did this happen?
+```
+
+Possible sources:
+
+### Best
+
+Student selects location:
+
+```text
+Hostel
+ → Block C
+ → Floor 2
+```
+
+### Secondary
+
+Extract from text:
+
+> "Wi-Fi isn't working in Lab 3"
+
+AI can identify:
+
+```text
+location = Lab 3
+```
+
+### Recommended architecture
+
+Use structured location whenever available.
+
+```text
+Location selected by user
+        ↓
+highest confidence
+```
+
+Text extraction becomes a fallback.
+
+This produces much cleaner hotspot analytics.
+
+---
+
+# 10. FLOW E — Duplicate detection
+
+This is arguably CampusPulse's most important AI feature.
+
+Suppose we receive:
+
+```text
+Complaint 1:
+"No water in Block C"
+
+Complaint 2:
+"Block C has no water"
+
+Complaint 3:
+"Water supply stopped in C block"
+
+Complaint 4:
+"No water since morning in hostel C"
+```
+
+Keyword matching is not enough.
+
+Instead:
+
+```text
+complaint
+   ↓
+embedding
+   ↓
+vector similarity
+   ↓
+existing issue clusters
+```
+
+Example:
+
+```text
+Complaint embedding
+        ↓
+search pgvector
+        ↓
+top similar issues
+        ↓
+similarity = 0.91
+        ↓
+belongs to ISSUE-421
+```
+
+So:
+
+```text
+Issue #421
+
+Category: Water / Hostel
+Location: Block C
+Complaints: 37
+Priority: CRITICAL
+```
+
+The deck describes clustering similar reports into one underlying issue. 
+
+---
+
+# 11. Don't use only clustering
+
+This is an important improvement over the simplistic architecture in the deck.
+
+Pure clustering algorithms like DBSCAN/K-Means are not ideal for **real-time duplicate assignment**.
+
+We need two stages:
+
+```text
+NEW COMPLAINT
+     │
+     ▼
+Vector similarity search
+     │
+     ├── similarity > threshold
+     │          ↓
+     │     existing issue
+     │
+     └── otherwise
+                ↓
+             new issue
+```
+
+Then periodic clustering can discover larger trends.
+
+So:
+
+### Real-time
+
+**Similarity search**
+
+### Analytics
+
+**Clustering**
+
+This is a much more practical architecture.
+
+---
+
+# 12. FLOW F — Urgency detection
+
+The deck specifically wants critical safety/infrastructure problems surfaced first. 
+
+Don't depend entirely on an ML model here.
+
+Use a hybrid approach:
+
+```text
+                 ┌─────────────┐
+Complaint ──────►│ Rule Engine │
+                 └──────┬──────┘
+                        │
+                        ▼
+                 urgency signals
+                        +
+                 ML prediction
+                        │
+                        ▼
+                 final severity
+```
+
+Example:
+
+```text
+"No electricity in corridor"
+→ HIGH
+
+"Fire alarm malfunctioning"
+→ CRITICAL
+
+"Dining hall food is cold"
+→ MEDIUM
+
+"Please improve library chairs"
+→ LOW
+```
+
+This is safer and more explainable.
+
+---
+
+# 13. FLOW G — Priority engine
+
+Severity isn't necessarily the same as priority.
+
+Consider:
+
+```text
+Issue A
+Security problem
+1 complaint
+
+Issue B
+Water outage
+75 complaints
+```
+
+Both may be important, but Issue B has enormous campus impact.
+
+So priority should combine:
+
+```text
+Urgency
++
+number of affected students
++
+recurrence
++
+age
++
+category
+```
+
+A simple initial formula could be:
+
+```text
+Priority Score =
+    0.40 × Urgency
+  + 0.25 × Affected Users
+  + 0.20 × Recurrence
+  + 0.10 × Age
+  + 0.05 × Category Weight
+```
+
+Normalize everything to 0–100.
+
+Example:
+
+```text
+Issue:
+Water outage — Block C
+
+Urgency       90
+Affected      85
+Recurrence    70
+Age           50
+Category      80
+
+Final score   82.5
+```
+
+Then:
+
+```text
+90–100 → CRITICAL
+75–89  → HIGH
+50–74  → MEDIUM
+0–49   → LOW
+```
+
+These exact weights are **my implementation proposal**, not figures specified in the deck.
+
+---
+
+# 14. FLOW H — Routing
+
+Now determine ownership.
+
+```text
+Category
+   ↓
+routing rules
+   ↓
+team
+```
+
+Example:
+
+```text
+Electricity → Electrical Team
+Hostel      → Hostel/Maintenance
+Food        → Mess/Food Team
+Sanitation  → Sanitation Team
+Wi-Fi       → IT Network Team
+Security    → Security Team
+Academics   → Academic Office
+```
+
+This aligns with the response teams described in the architecture slide. 
+
+---
+
+# 15. FLOW I — Issue creation
+
+Now create the operational case.
+
+```text
+ISSUE-CP-2026-00421
+```
+
+Store:
+
+```text
+Issue ID
+Title
+Category
+Location
+Description
+Complaint Count
+Urgency
+Priority Score
+Assigned Team
+Status
+Created At
+Updated At
+```
+
+And connect every complaint to it:
+
+```text
+CMP-001 → ISSUE-00421
+CMP-007 → ISSUE-00421
+CMP-023 → ISSUE-00421
+...
+```
+
+This is much better than merging/deleting complaints.
+
+You preserve the evidence.
+
+---
+
+# 16. FLOW J — Jira integration
+
+The deck specifically requires auto-generated Jira tickets with a unique case ID. 
+
+So:
+
+```text
+Issue created
+      ↓
+Jira service
+      ↓
+POST /issue
+      ↓
+Jira issue created
+      ↓
+store jira_issue_id
+```
+
+Example:
+
+```text
+CampusPulse:
+
+ISSUE-00421
+
+↓
+
+Jira:
+
+CAMP-421
+```
+
+The database should store the mapping:
+
+```text
+campuspulse_issue_id
+jira_issue_id
+jira_url
+sync_status
+last_synced_at
+```
+
+---
+
+# 17. FLOW K — Slack alert
+
+After Jira creation:
+
+```text
+Jira ticket
+      ↓
+Slack integration
+```
+
+Example:
+
+```text
+🚨 CRITICAL CAMPUS ISSUE
+
+Issue: No water in Block C
+Category: Hostel
+Reports: 37
+Priority: 92
+
+Case: ISSUE-00421
+Jira: CAMP-421
+Assigned: Hostel Maintenance
+```
+
+The deck explicitly describes Slack alerts/status updates to the owning team. 
+
+---
+
+# 18. FLOW L — Admin dashboard
+
+The dashboard shouldn't just display complaints.
+
+It should display **issues**.
+
+### Overview
+
+```text
+┌─────────────────────────────────────────┐
+│ Total Complaints       247               │
+│ Critical Issues          8               │
+│ Resolved               183              │
+│ Pending                 56               │
+└─────────────────────────────────────────┘
+```
+
+Those example figures are taken directly from the deck's dashboard concept. 
+
+### Main table
+
+```text
+Priority | Issue | Category | Location | Reports | Team | Status
+----------------------------------------------------------------
+CRITICAL | Water outage | Hostel | Block C | 37 | Maintenance | OPEN
+HIGH     | Wi-Fi down   | Wi-Fi   | Lab 3   | 19 | IT | IN PROGRESS
+MEDIUM   | Food quality | Food    | Mess 1  | 8  | Food | OPEN
+```
+
+---
+
+# 19. Hotspot intelligence
+
+The deck explicitly includes campus hotspot mapping. 
+
+But don't start with fancy geospatial AI.
+
+Use a campus map with predefined locations:
+
+```text
+Campus
+ ├── Hostel A
+ ├── Hostel B
+ ├── Block C
+ ├── Main Building
+ ├── Lab Complex
+ ├── Mess
+ └── Library
+```
+
+Each issue contributes weight:
+
+```text
+Block C
+ ├── Water        37
+ ├── Electricity 12
+ ├── Wi-Fi        5
+ └── Sanitation   9
+```
+
+Then calculate:
+
+```text
+hotspot score =
+weighted count of active/recurring issues
+```
+
+This gives the administration an actual decision tool rather than merely plotting dots.
+
+---
+
+# 20. Resolution flow
+
+This part needs to be designed carefully because the deck mentions teams acting on Jira tickets and status synchronization, but doesn't spell out every state.
+
+I recommend:
+
+```text
+NEW
+ ↓
+AI_PROCESSING
+ ↓
+OPEN
+ ↓
+ASSIGNED
+ ↓
+IN_PROGRESS
+ ↓
+RESOLVED
+ ↓
+CLOSED
+```
+
+With alternate paths:
+
+```text
+OPEN
+ ├── DUPLICATE
+ ├── REJECTED
+ └── NEEDS_INFORMATION
+```
+
+---
+
+# 21. Jira → CampusPulse synchronization
+
+This should use webhooks rather than repeatedly polling Jira.
+
+```text
+Jira
+  │
+  │ webhook
+  ▼
+CampusPulse
+  │
+  ▼
+Update issue
+  │
+  ├── IN_PROGRESS
+  ├── RESOLVED
+  └── CLOSED
+```
+
+So dashboard status always reflects the operational ticket.
+
+---
+
+# 22. Feedback loop
+
+The deck explicitly proposes using resolution outcomes to continuously improve classification. 
+
+This should be implemented as:
+
+```text
+AI prediction
+      ↓
+Admin/team correction
+      ↓
+actual category
+      ↓
+stored as labeled data
+```
+
+Example:
+
+```text
+AI:
+Electricity — 64%
+
+Admin:
+Actually Wi-Fi
+```
+
+Store:
+
+```text
+predicted_category = electricity
+actual_category = wifi
+```
+
+Later:
+
+```text
+training dataset
+      ↓
+model evaluation
+      ↓
+model improvement
+```
+
+Do **not** automatically retrain the model on every complaint.
+
+Instead use:
+
+```text
+feedback collection
+        ↓
+dataset
+        ↓
+periodic retraining
+        ↓
+validation
+        ↓
+deploy new model
+```
+
+---
+
+# 23. Recommended database design
+
+A good schema would look like this.
+
+```text
+users
+-----
+id
+name
+email
+role
+department
+created_at
+```
+
+```text
+complaints
+----------
+id
+user_id
+raw_text
+normalized_text
+embedding
+category
+category_confidence
+urgency
+location_id
+source
+status
+issue_id
+created_at
+```
+
+```text
+issues
+------
+id
+case_id
+title
+description
+category
+location_id
+urgency
+priority_score
+complaint_count
+assigned_team_id
+status
+jira_issue_id
+created_at
+updated_at
+resolved_at
+```
+
+```text
+issue_complaints
+-----------------
+issue_id
+complaint_id
+similarity_score
+```
+
+```text
+teams
+-----
+id
+name
+category
+slack_channel
+jira_project
+```
+
+```text
+locations
+---------
+id
+name
+building
+floor
+latitude
+longitude
+parent_location_id
+```
+
+```text
+status_history
+--------------
+id
+issue_id
+old_status
+new_status
+changed_by
+timestamp
+```
+
+```text
+ai_predictions
+---------------
+id
+complaint_id
+model_version
+category
+confidence
+urgency
+processing_time
+created_at
+```
+
+```text
+feedback
+--------
+id
+complaint_id
+field
+predicted_value
+corrected_value
+corrected_by
+created_at
+```
+
+---
+
+# 24. Backend modules
+
+Keep one backend repository, but divide it logically.
+
+```text
+backend/
+│
+├── auth/
+├── complaints/
+├── issues/
+├── users/
+├── teams/
+├── locations/
+├── dashboard/
+├── ai/
+│   ├── preprocessing/
+│   ├── embeddings/
+│   ├── classification/
+│   ├── deduplication/
+│   ├── urgency/
+│   └── priority/
+│
+├── integrations/
+│   ├── jira/
+│   └── slack/
+│
+├── notifications/
+├── analytics/
+└── audit/
+```
+
+This gives us microservice-like separation **inside a single deployable application**.
+
+That is the right compromise here.
+
+---
+
+# 25. AI architecture
+
+I would design the AI pipeline like this:
+
+```text
+                   Raw Complaint
+                         │
+                         ▼
+                 Text Preprocessor
+                         │
+                         ▼
+                  Sentence Encoder
+                         │
+               ┌─────────┴─────────┐
+               │                   │
+               ▼                   ▼
+        Category Classifier   Vector Search
+               │                   │
+               ▼                   ▼
+          Category           Duplicate Issue?
+               │                   │
+               └─────────┬─────────┘
+                         ▼
+                   Urgency Engine
+                         │
+                         ▼
+                   Priority Engine
+                         │
+                         ▼
+                  Routing Engine
+```
+
+---
+
+# 26. Model choice
+
+For this particular project, I would **not** recommend:
+
+```text
+Llama
+GPT fine-tuning
+large BERT model
+large vision-language model
+```
+
+at the MVP stage.
+
+You don't need them.
+
+A lightweight stack is sufficient:
+
+```text
+Sentence Transformer
+        +
+scikit-learn classifier
+        +
+cosine similarity
+        +
+rules for urgency
+```
+
+For example:
+
+```text
+Embedding:
+all-MiniLM-L6-v2
+
+Classifier:
+Logistic Regression
+```
+
+This can run comfortably without requiring a powerful GPU.
+
+The exact model should be validated against your actual complaint dataset rather than selected purely from benchmark reputation.
+
+---
+
+# 27. Handling WhatsApp, email and other channels
+
+The problem slide says complaints arrive through forms, WhatsApp, email and word-of-mouth. 
+
+But the technology slide specifically lists:
+
+```text
+Web/app form
+Chat-style free text
+Batch upload
+```
+
+So I would **not make WhatsApp/email ingestion a Day-1 dependency**.
+
+Build the ingestion layer like:
+
+```text
+                 Complaint API
+                       ▲
+             ┌─────────┼─────────┐
+             │         │         │
+           Web       Email    WhatsApp
+             │         │         │
+             └─────────┴─────────┘
+                       │
+                 Normalized
+                 Complaint
+```
+
+Every channel ultimately creates the same internal object:
+
+```json
+{
+  "source": "whatsapp",
+  "text": "...",
+  "external_id": "...",
+  "user": "..."
+}
+```
+
+That makes additional channels plug-ins rather than redesigning the system.
+
+---
+
+# 28. API design
+
+Essential endpoints:
+
+```text
+POST   /api/complaints
+GET    /api/complaints/{id}
+
+GET    /api/issues
+GET    /api/issues/{id}
+
+PATCH  /api/issues/{id}/status
+PATCH  /api/issues/{id}/assign
+
+GET    /api/dashboard/summary
+GET    /api/dashboard/categories
+GET    /api/dashboard/hotspots
+
+POST   /api/issues/{id}/feedback
+
+POST   /api/webhooks/jira
+POST   /api/webhooks/slack
+```
+
+For AI:
+
+```text
+POST /internal/ai/process/{complaint_id}
+```
+
+This should normally be triggered by the worker rather than exposed publicly.
+
+---
+
+# 29. Frontend architecture
+
+Two experiences.
+
+## Student
+
+```text
+Login
+  ↓
+Submit complaint
+  ↓
+Complaint received
+  ↓
+Track submitted issues
+  ↓
+View status
+```
+
+Keep this extremely simple.
+
+## Admin
+
+```text
+Dashboard
+│
+├── All Issues
+├── Critical
+├── Pending
+├── Resolved
+├── Categories
+├── Hotspots
+├── Teams
+└── Analytics
+```
+
+The deck's dashboard is specifically oriented around total complaints, critical issues, resolved/pending issues, categories and campus hotspots. 
+
+---
+
+# 30. Security architecture
+
+Don't treat this as an afterthought.
+
+```text
+User
+ ↓
+JWT / session authentication
+ ↓
+Role-based authorization
+ ↓
+API
+```
+
+Roles:
+
+```text
+STUDENT
+STAFF
+ADMIN
+TEAM_MANAGER
+```
+
+For example:
+
+```text
+Student
+→ can see own complaints
+
+Staff
+→ can see assigned issues
+
+Admin
+→ can see everything
+
+Team Manager
+→ can see department issues
+```
+
+Also keep:
+
+```text
+audit_logs
+```
+
+for:
+
+```text
+who changed priority
+who changed category
+who reassigned issue
+who closed issue
+```
+
+This becomes particularly important when AI makes decisions.
+
+---
+
+# 31. AI explainability
+
+This would be an excellent feature for your project presentation.
+
+Don't show:
+
+```text
+Priority: 91
+```
+
+Show:
+
+```text
+Priority: CRITICAL
+
+Why?
+
+• Safety-related category
+• 37 similar complaints
+• Same location reported repeatedly
+• Issue active for 9 hours
+```
+
+Then CampusPulse feels like an intelligent operational system rather than a black-box classifier.
+
+This directly reinforces the deck's goal of turning complaints into actionable intelligence. 
+
+---
+
+# 32. Failure handling
+
+A serious architecture needs fallbacks.
+
+### AI unavailable
+
+```text
+AI worker failure
+      ↓
+Complaint remains stored
+      ↓
+status = PROCESSING_FAILED
+      ↓
+retry
+```
+
+### Jira unavailable
+
+```text
+Issue created locally
+      ↓
+jira_sync = PENDING
+      ↓
+retry later
+```
+
+### Slack unavailable
+
+```text
+Jira succeeds
+Slack fails
+      ↓
+notification retry queue
+```
+
+Never make:
+
+```text
+Jira failure
+=
+complaint lost
+```
+
+The primary source of truth must remain CampusPulse's database.
+
+---
+
+# 33. Idempotency
+
+This is easy to miss and very important.
+
+Suppose the worker retries:
+
+```text
+Create Jira ticket
+```
+
+Without protection:
+
+```text
+CAMP-421
+CAMP-422
+```
+
+might both be created for the same issue.
+
+So:
+
+```text
+issues.jira_issue_id
+```
+
+acts as an idempotency guard.
+
+Likewise Slack notifications should have an event ID.
+
+---
+
+# 34. Event flow
+
+Internally you can think about the system as events:
+
+```text
+ComplaintCreated
+       ↓
+ComplaintProcessed
+       ↓
+IssueMatched / IssueCreated
+       ↓
+PriorityCalculated
+       ↓
+IssueAssigned
+       ↓
+JiraCreated
+       ↓
+SlackNotified
+       ↓
+StatusChanged
+       ↓
+IssueResolved
+       ↓
+FeedbackCaptured
+```
+
+You don't need a Kafka infrastructure to implement this.
+
+A database-backed job queue is enough initially.
+
+---
+
+# 35. Complete architecture in one diagram
+
+This is the architecture I would actually build:
+
+```text
+                         CAMPUSPULSE
+                    END-TO-END ARCHITECTURE
+
+ ┌───────────────────────────────────────────────────────────┐
+ │                       INPUT CHANNELS                       │
+ │                                                           │
+ │   Student Web App     Chat     Email*     WhatsApp*       │
+ └───────────────┬───────────────────────────────────────────┘
+                 │
+                 ▼
+        ┌───────────────────┐
+        │    FastAPI API    │
+        │                   │
+        │ Auth              │
+        │ Complaint Intake  │
+        │ Validation        │
+        └─────────┬─────────┘
+                  │
+                  ▼
+        ┌───────────────────┐
+        │    PostgreSQL     │
+        │                   │
+        │ Complaints        │
+        │ Issues            │
+        │ Users             │
+        │ Teams             │
+        │ Locations         │
+        │ Audit Logs        │
+        └─────────┬─────────┘
+                  │
+                  │ enqueue
+                  ▼
+        ┌───────────────────┐
+        │   Redis Queue     │
+        └─────────┬─────────┘
+                  │
+                  ▼
+        ┌─────────────────────────────┐
+        │        AI WORKER            │
+        │                             │
+        │ NLP preprocessing           │
+        │ ↓                           │
+        │ Embeddings                  │
+        │ ↓                           │
+        │ Classification              │
+        │ ↓                           │
+        │ Similarity / Deduplication  │
+        │ ↓                           │
+        │ Urgency                     │
+        │ ↓                           │
+        │ Priority                    │
+        │ ↓                           │
+        │ Routing                     │
+        └─────────────┬───────────────┘
+                      │
+             ┌────────┴────────┐
+             │                 │
+             ▼                 ▼
+      ┌──────────────┐   ┌──────────────┐
+      │ Issue Store  │   │ Integrations │
+      │              │   │              │
+      │ Issue/Case   │   │ Jira         │
+      │ Clusters     │   │ Slack        │
+      │ Priority     │   │ Webhooks     │
+      └──────┬───────┘   └──────┬───────┘
+             │                  │
+             └────────┬─────────┘
+                      ▼
+             ┌───────────────────┐
+             │  ADMIN DASHBOARD  │
+             │                   │
+             │ Critical Issues   │
+             │ Pending           │
+             │ Categories        │
+             │ Hotspots           │
+             │ Trends            │
+             │ Resolution        │
+             └─────────┬─────────┘
+                       │
+                       ▼
+             ┌───────────────────┐
+             │ CAMPUS TEAMS      │
+             │                   │
+             │ Electricity      │
+             │ Hostel           │
+             │ Food             │
+             │ Sanitation       │
+             │ Wi-Fi            │
+             │ Academics        │
+             │ Security         │
+             └─────────┬─────────┘
+                       │
+                       ▼
+                  RESOLUTION
+                       │
+                       ▼
+                FEEDBACK DATA
+                       │
+                       ▼
+                 MODEL IMPROVEMENT
+
+* Later roadmap stages
+```
+
+---
+
+# 36. Technology stack I recommend
+
+| Layer            | Technology                            | Reason                              |
+| ---------------- | ------------------------------------- | ----------------------------------- |
+| Frontend         | React / Next.js                       | Simple dashboard + student UI       |
+| Backend          | FastAPI                               | Excellent Python/ML integration     |
+| Database         | PostgreSQL                            | Relational complaint/issue workflow |
+| Vector search    | pgvector                              | Avoid separate vector DB            |
+| Queue            | Redis                                 | Lightweight async processing        |
+| Worker           | Celery/RQ                             | Background AI processing            |
+| NLP              | Python                                | ML ecosystem                        |
+| Embeddings       | Sentence Transformers                 | Lightweight semantic representation |
+| Classifier       | scikit-learn                          | Fast, explainable, CPU-friendly     |
+| Clustering       | DBSCAN/HDBSCAN or similarity grouping | Duplicate/trend analysis            |
+| Maps             | Leaflet/OpenStreetMap                 | Low-cost campus visualization       |
+| External tickets | Jira REST API                         | Required by concept                 |
+| Notifications    | Slack API                             | Required by concept                 |
+| Auth             | JWT/session + RBAC                    | Role-based access                   |
+| Deployment       | Docker                                | Reproducible deployment             |
+
+This is deliberately **boring infrastructure and interesting intelligence**.
+
+That is what I recommend for this project.
+
+---
+
+# 37. Roadmap
+
+## Phase 0 — Define the data model
+
+Before writing AI:
+
+```text
+Users
+Complaints
+Issues
+Categories
+Locations
+Teams
+Status
+```
+
+Also prepare:
+
+```text
+20–30 sample complaints/category
+```
+
+Do this first.
+
+---
+
+# Phase 1 — Functional MVP
+
+Build:
+
+```text
+Student UI
+    ↓
+Complaint API
+    ↓
+PostgreSQL
+    ↓
+Admin dashboard
+```
+
+Features:
+
+* authentication
+* complaint submission
+* complaint listing
+* admin issue management
+* status changes
+* categories
+* locations
+
+At this point the system works even without AI.
+
+---
+
+# Phase 2 — NLP intelligence
+
+Add:
+
+```text
+preprocessing
+↓
+embedding
+↓
+classification
+```
+
+Now:
+
+```text
+"No water in Block C"
+```
+
+automatically becomes:
+
+```text
+Category = Hostel
+Location = Block C
+```
+
+---
+
+# Phase 3 — Duplicate detection
+
+Implement:
+
+```text
+embedding
+↓
+pgvector
+↓
+similarity
+↓
+existing issue / new issue
+```
+
+Then show:
+
+```text
+37 student reports
+        ↓
+1 campus issue
+```
+
+This should become one of the headline demo features.
+
+---
+
+# Phase 4 — Urgency + priority
+
+Add:
+
+```text
+Urgency
++
+Affected users
++
+Recurrence
++
+Age
+```
+
+Then:
+
+```text
+CRITICAL
+HIGH
+MEDIUM
+LOW
+```
+
+and automatically sort the dashboard.
+
+---
+
+# Phase 5 — Routing
+
+Add rules:
+
+```text
+Hostel → Hostel team
+Wi-Fi → IT
+Electricity → Electrical
+Food → Food/Mess
+Security → Security
+```
+
+Now the system has moved from:
+
+**analyzer → operational system**
+
+---
+
+# Phase 6 — Jira + Slack
+
+Implement:
+
+```text
+Issue created
+     ↓
+Jira ticket
+     ↓
+Slack alert
+```
+
+Then webhook:
+
+```text
+Jira status
+     ↓
+CampusPulse status
+```
+
+This directly fulfills one of the strongest features in the deck. 
+
+---
+
+# Phase 7 — Hotspot intelligence
+
+Build:
+
+```text
+Campus map
++
+issue locations
++
+category density
++
+recurrence
+```
+
+Example:
+
+```text
+BLOCK C
+████████████
+Water: 37
+Electricity: 12
+Wi-Fi: 5
+```
+
+Now the dashboard becomes analytical rather than merely administrative.
+
+---
+
+# Phase 8 — Feedback loop
+
+Capture:
+
+```text
+AI prediction
+Admin correction
+Final resolution
+```
+
+Then create:
+
+```text
+model evaluation dataset
+```
+
+Only after you have enough real examples should you consider retraining.
+
+---
+
+# Phase 9 — Multi-channel ingestion
+
+Finally add:
+
+```text
+Email
+WhatsApp
+Historical CSV
+```
+
+All feed into:
+
+```text
+Common Complaint Ingestion Layer
+```
+
+This matches the scattered-channel problem described in the deck. 
+
+---
+
+# 38. What I would build first for a college project
+
+There is a danger here of trying to implement **everything**.
+
+Your strongest MVP should be:
+
+```text
+1. Student complaint submission
+              ↓
+2. NLP classification
+              ↓
+3. Semantic duplicate detection
+              ↓
+4. Urgency / priority
+              ↓
+5. Issue clustering
+              ↓
+6. Admin dashboard
+              ↓
+7. Jira ticket
+              ↓
+8. Slack alert
+```
+
+Then add:
+
+```text
+9. Hotspot map
+10. Feedback loop
+11. Email/WhatsApp ingestion
+```
+
+The first 8 features form a coherent end-to-end demonstration.
+
+---
+
+# 39. The actual demo scenario
+
+For your final presentation, don't demo 20 unrelated complaints.
+
+Create a scenario.
+
+### Student 1
+
+> "No water in Block C since 8 AM."
+
+### Student 2
+
+> "Water supply has stopped in C block."
+
+### Student 3
+
+> "Hostel C has no water."
+
+### Student 4
+
+> "No water coming in Block C bathrooms."
+
+CampusPulse receives all four.
+
+The system should show:
+
+```text
+4 COMPLAINTS
+
+        ↓
+
+1 UNDERLYING ISSUE
+
+        ↓
+
+ISSUE-00421
+HOSTEL / WATER
+BLOCK C
+
+Reports: 4
+Urgency: HIGH
+Priority: 87
+
+        ↓
+
+HOSTEL MAINTENANCE
+
+        ↓
+
+JIRA CAMP-421
+
+        ↓
+
+SLACK 🚨 ALERT
+```
+
+Then when the team resolves it:
+
+```text
+Jira → RESOLVED
+       ↓
+CampusPulse
+       ↓
+Issue resolved
+       ↓
+4 complaints resolved
+```
+
+That single demonstration proves almost the entire concept.
+
+---
+
+# 40. One architectural change I strongly recommend
+
+The deck currently presents:
+
+```text
+Classifier + Cluster Model
+```
+
+as one combined conceptual component. 
+
+I would separate them logically:
+
+```text
+                 NLP
+                  │
+          ┌───────┴───────┐
+          ▼               ▼
+    CLASSIFICATION    EMBEDDING
+          │               │
+          │         ┌─────┴──────┐
+          │         ▼            ▼
+          │     SIMILARITY    CLUSTERING
+          │         │            │
+          └────┬────┴────────────┘
+               ▼
+         ISSUE RESOLUTION
+```
+
+Because they answer different questions:
+
+**Classification:**
+
+> "What kind of complaint is this?"
+
+**Similarity:**
+
+> "Is this the same problem someone already reported?"
+
+**Clustering:**
+
+> "What larger patterns exist across many complaints?"
+
+Keeping those concepts separate will make both the implementation and your viva/presentation much stronger.
+
+---
+
+# 41. Final system philosophy
+
+The architecture should essentially follow this chain:
+
+```text
+                 COMPLAINT
+                     │
+                     ▼
+              UNDERSTAND IT
+                     │
+           ┌─────────┴─────────┐
+           ▼                   ▼
+       WHAT IS IT?         SAME AS WHAT?
+       Classification      Deduplication
+           │                   │
+           └─────────┬─────────┘
+                     ▼
+                 HOW URGENT?
+                     │
+                     ▼
+                HOW IMPORTANT?
+                     │
+                     ▼
+                 WHO OWNS IT?
+                     │
+                     ▼
+               TAKE ACTION
+                     │
+                     ▼
+                DID IT WORK?
+                     │
+                     ▼
+                LEARN FROM IT
+```
+
+That is the real **CampusPulse architecture**.
+
+The deck already establishes the complaint → NLP → classification → clustering → prioritization → routing → Jira/Slack → response-team → feedback concept.  The architecture above turns that concept into an implementable system without introducing unnecessary infrastructure.
+
+If you're building this for a hackathon/college project, I would use **this modular-monolith architecture as the baseline**, then implement the roadmap in the exact phase order above rather than trying to build every feature simultaneously.

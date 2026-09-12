@@ -1,0 +1,172 @@
+====================================================================================================
+CAMPUSPULSE — SYSTEM USERS & CREDENTIALS CHEAT-SHEET
+====================================================================================================
+Use these credentials to test role-based access control (RBAC), multi-user voting, ticket action
+logging, confidential leadership communication, and resolution workflows.
+
+----------------------------------------------------------------------------------------------------
+ROLE: STUDENT (Incident Reporting, Single-Vote Endorsements, My Ticket History)
+----------------------------------------------------------------------------------------------------
+1. Username:     student_rohit
+   Password:     student@123
+   Full Name:    Rohit Verma
+   Role:         student
+   Department:   Computer Science & Engineering
+   Email:        rohit.verma@campus.edu
+
+2. Username:     student_priya
+   Password:     student@123
+   Full Name:    Priya Sengupta
+   Role:         student
+   Department:   Electronics & Communication
+   Email:        priya.sengupta@campus.edu
+
+3. Username:     student_arjun
+   Password:     student@123
+   Full Name:    Arjun Das
+   Role:         student
+   Department:   Mechanical Engineering
+   Email:        arjun.das@campus.edu
+
+4. Username:     student_neha
+   Password:     student@123
+   Full Name:    Neha Roy
+   Role:         student
+   Department:   Civil Engineering
+   Email:        neha.roy@campus.edu
+
+Permissions:  • Report campus issues (with trilingual NLP assistance in English, Hindi, Bengali)
+              • Submit public, anonymous, or private confidential inquiries
+              • Endorse existing active complaints ("I have this issue too" — strict 1 vote/ticket)
+              • Track personal history & view confidential leadership replies in "My Ticket History"
+              • RESTRICTED: Cannot access Faculty Incident Console or modify ticket status
+
+----------------------------------------------------------------------------------------------------
+ROLE: FACULTY (Incident Console Triage, Action Log Comments, Location Hotspots)
+----------------------------------------------------------------------------------------------------
+1. Username:     prof_sharma
+   Password:     faculty@123
+   Full Name:    Prof. Rajesh Sharma
+   Role:         faculty
+   Department:   Electrical Engineering
+   Email:        rajesh.sharma@campus.edu
+
+2. Username:     prof_gupta
+   Password:     faculty@123
+   Full Name:    Prof. Sunita Gupta
+   Role:         faculty
+   Department:   Computer Science & Engineering
+   Email:        sunita.gupta@campus.edu
+
+3. Username:     prof_chatterjee
+   Password:     faculty@123
+   Full Name:    Prof. Subhash Chatterjee
+   Role:         faculty
+   Department:   Civil & Infrastructure
+   Email:        subhash.chatterjee@campus.edu
+
+Permissions:  • Access Faculty Incident Resolution Console & Campus Resolution Archive
+              • View student creator details (name, student ID, or anonymous flag)
+              • Inspect merged student complaints & individual timestamps
+              • Update ticket status (Open -> Assigned -> In Progress -> Resolved) with action comments
+              • View "Show Action Log" audit history in IST
+
+----------------------------------------------------------------------------------------------------
+ROLE: HOD (Department Oversight, Priority Escalation & Confidential Inquiries)
+----------------------------------------------------------------------------------------------------
+1. Username:     hod_cse
+   Password:     hod@123
+   Full Name:    Dr. Ananya Mukherjee
+   Role:         hod
+   Department:   Computer Science & Engineering
+   Email:        ananya.mukherjee@campus.edu
+
+2. Username:     hod_ee
+   Password:     hod@123
+   Full Name:    Dr. Vikramaditya Roy
+   Role:         hod
+   Department:   Electrical Engineering
+   Email:        vikramaditya.roy@campus.edu
+
+3. Username:     hod_mech
+   Password:     hod@123
+   Full Name:    Dr. Arundhati Sen
+   Role:         hod
+   Department:   Mechanical Engineering
+   Email:        arundhati.sen@campus.edu
+
+Permissions:  • Department-level priority triage and SLA enforcement
+              • Dedicated "Confidential Inbox" for private student inquiries with reply tracking
+              • Update ticket status with HOD-level action comments
+              • Oversee duplicate complaint clustering & review NLP classification confidence
+
+----------------------------------------------------------------------------------------------------
+ROLE: MANAGEMENT (Campus Administration, Deans & Provosts)
+----------------------------------------------------------------------------------------------------
+1. Username:     admin_dean
+   Password:     mgmt@123
+   Full Name:    Dean E. Vance
+   Role:         management
+   Department:   Campus Administration & Student Affairs
+   Email:        dean.vance@campus.edu
+
+2. Username:     dean_academics
+   Password:     mgmt@123
+   Full Name:    Dr. K. S. Ramanujan
+   Role:         management
+   Department:   Academic Affairs & Research
+   Email:        ks.ramanujan@campus.edu
+
+3. Username:     director_campus
+   Password:     mgmt@123
+   Full Name:    Dr. Meera Iyer
+   Role:         management
+   Department:   Campus Director & Provost
+   Email:        director.meera@campus.edu
+
+Permissions:  • Campus-wide operational oversight, KPI metrics, and SLA monitoring
+              • Confidential student grievances and executive appeals inbox
+              • High/Critical urgency ticket dispatch and escalation control
+              • Jira & Slack enterprise alert dispatch synchronization
+
+----------------------------------------------------------------------------------------------------
+ROLE: STAFF (On-Site Maintenance Technicians & Wardens)
+----------------------------------------------------------------------------------------------------
+1. Username:     staff_singh
+   Password:     staff@123
+   Full Name:    Suresh Singh (Warden)
+   Role:         staff
+   Department:   Hostel Facilities & Ground Operations
+   Email:        suresh.singh@campus.edu
+
+2. Username:     staff_ramesh
+   Password:     staff@123
+   Full Name:    Ramesh Kumar (Electrician)
+   Role:         staff
+   Department:   Campus Electrical & Power Operations
+   Email:        ramesh.kumar@campus.edu
+
+3. Username:     staff_anil
+   Password:     staff@123
+   Full Name:    Anil Karmakar (Plumbing)
+   Role:         staff
+   Department:   Water Supply & Sanitation Maintenance
+   Email:        anil.karmakar@campus.edu
+
+4. Username:     staff_it_samir
+   Password:     staff@123
+   Full Name:    Samir Dutta (IT Admin)
+   Role:         staff
+   Department:   IT Infrastructure & Network Helpdesk
+   Email:        samir.dutta@campus.edu
+
+Permissions:  • Physical maintenance updates & field technician status logs
+              • Log technician arrival, replacement part notes, and completion verification
+              • View location hotspots and active problem clusters
+
+====================================================================================================
+HOW TO SWITCH USERS IN BROWSER:
+1. Open http://127.0.0.1:8000
+2. Click the user pill in the top right corner ("Switch Role / Login").
+3. Click any of the 1-click quick login chips or enter any username & password above.
+====================================================================================================

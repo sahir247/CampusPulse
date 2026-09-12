@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>CampusPulse — Campus Issue Reporting & Resolution</title>
+  
+  <!-- Fonts: Inter & Material Symbols -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .tab-active {
+      background-color: #4338ca !important;
+      color: #ffffff !important;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(67, 56, 202, 0.2);
+    }
+    .fade-in { animation: fadeIn 0.2s ease-in-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    };
+  </script>
+</head>
+
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased flex flex-col justify-between">
+
+  <!-- Clean Top Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      
+      <!-- Brand & View Switcher -->
+      <div class="flex items-center gap-4 sm:gap-6">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="switchView('student')">
+          <div class="w-9 h-9 rounded-xl bg-brand-700 flex items-center justify-center text-white shadow-sm font-black text-sm tracking-wide">
+            CP
+          </div>
+          <div class="flex flex-col">
+            <span class="text-base font-bold text-slate-900 leading-tight">CampusPulse</span>
+            <span class="text-[11px] text-slate-500 font-medium">Issue Resolution Portal</span>
+          </div>
+        </div>
+
+        <!-- Role View Switcher (Dynamic Tabs Per Role - No 'Restricted' anti-pattern) -->
+        <div id="roleNavTabs" class="flex items-center p-1 bg-slate-100 rounded-xl gap-1">
+          <!-- Populated dynamically per role via updateUserNavUI() -->
+        </div>
+      </div>
+
+      <!-- Quick Actions (Clean, Non-Technical) -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Demo Helper Dropdown -->
+        <div class="relative">
+          <button onclick="toggleDemoMenu()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+            <span class="material-symbols-outlined text-sm text-brand-700">play_circle</span>
+            <span class="hidden sm:inline">Presentation Demo</span>
+            <span class="material-symbols-outlined text-xs">expand_more</span>
+          </button>
+          
+          <div id="demoMenu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 text-xs z-50 flex flex-col gap-1">
+            <button onclick="runDeckDemoScenario(); toggleDemoMenu();" class="text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-800 font-medium flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm text-brand-600">group</span>
+              <span>Test 4-Student Water Outage</span>
+            </button>
+            <button onclick="testJiraWebhook(); toggleDemoMenu();" class="text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-800 font-medium flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm text-emerald-600">task_alt</span>
+              <span>Simulate Ticket Resolved</span>
+            </button>
+            <div class="border-t border-slate-100 my-0.5"></div>
+            <button onclick="seedDatabase(true); toggleDemoMenu();" class="text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-medium flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm">restart_alt</span>
+              <span>Reset Demo Data</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Campus Operational Status Badge -->
+        <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Helpdesk Active</span>
+        </div>
+
+        <!-- Dynamic User Profile & Role Switcher Pill -->
+        <div class="flex items-center gap-2 pl-2 border-l border-slate-200">
+          <button onclick="openAuthModal()" class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all cursor-pointer group" title="Click to switch active role or sign in (Credentials in users.txt)">
+            <div id="navUserAvatar" class="w-8 h-8 rounded-full bg-indigo-700 text-white flex items-center justify-center font-extrabold text-xs shadow-xs">
+              U
+            </div>
+            <div class="flex flex-col text-left">
+              <div class="flex items-center gap-1.5">
+                <span id="navUserName" class="text-xs font-bold text-slate-900 leading-tight">Loading...</span>
+                <span id="navUserRoleBadge" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-blue-100 text-blue-800 tracking-wide">USER</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-medium group-hover:text-brand-700 flex items-center gap-0.5 transition-colors">
+                <span>Switch Role / Login</span>
+                <span class="material-symbols-outlined text-[12px]">expand_more</span>
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ========================================================================= -->
+  <!-- 1. STUDENT VIEW: REPORT ISSUE (PUBLIC / ANONYMOUS / PRIVATE) -->
+  <!-- ========================================================================= -->
+  <main id="viewStudentReport" class="max-w-4xl mx-auto px-4 sm:px-6 py-8 w-full fade-in">
+    
+    <!-- Friendly Header Intro -->
+    <div class="mb-6 text-center sm:text-left">
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Report a Campus Issue</h1>
+      <p class="text-slate-600 text-sm mt-1">
+        Centralized reporting for maintenance, facilities, hostel amenities, and confidential leadership inquiries.
+      </p>
+    </div>
+
+    <!-- Main Reporting Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 mb-10">
+      <form onsubmit="handleFormSubmit(event)" class="flex flex-col gap-5">
+        
+        <!-- 3-Way Mode Selector: Public / Anonymous / Private -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Submission Privacy &amp; Routing Mode
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <!-- Mode 1: Public -->
+            <button type="button" onclick="setSubmissionMode('public')" id="modeBtnPublic" class="p-3.5 rounded-xl border-2 border-brand-600 bg-brand-50/70 text-brand-900 flex flex-col items-start text-left transition-all shadow-xs">
+              <div class="flex items-center gap-1.5 font-bold text-xs">
+                <span class="material-symbols-outlined text-base text-brand-700">public</span>
+                <span>Public Report</span>
+              </div>
+              <span class="text-[11px] text-slate-600 mt-1 leading-snug">Visible to campus community &amp; assigned maintenance teams</span>
+            </button>
+
+            <!-- Mode 2: Anonymous -->
+            <button type="button" onclick="setSubmissionMode('anonymous')" id="modeBtnAnon" class="p-3.5 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 flex flex-col items-start text-left transition-all">
+              <div class="flex items-center gap-1.5 font-bold text-xs">
+                <span class="material-symbols-outlined text-base text-slate-500">visibility_off</span>
+                <span>Send Anonymously</span>
+              </div>
+              <span class="text-[11px] text-slate-500 mt-1 leading-snug">Your identity is completely hidden from everyone, even staff</span>
+            </button>
+
+            <!-- Mode 3: Send Privately -->
+            <button type="button" onclick="setSubmissionMode('private')" id="modeBtnPrivate" class="p-3.5 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 flex flex-col items-start text-left transition-all">
+              <div class="flex items-center gap-1.5 font-bold text-xs">
+                <span class="material-symbols-outlined text-base text-indigo-600">lock</span>
+                <span>Send Privately</span>
+              </div>
+              <span class="text-[11px] text-slate-500 mt-1 leading-snug">Confidential message directly to specific HOD, Dean, or Staff</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Cascading Recipient Dropdowns (Shown only when 'Send Privately' is active) -->
+        <div id="privateRoutingContainer" class="hidden p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 flex flex-col gap-3">
+          <div class="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+            <span class="material-symbols-outlined text-base text-indigo-700">lock_person</span>
+            <span>Confidential Routing: Routed strictly to selected recipient's private inbox</span>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Step 1: Role Selector -->
+            <div class="flex flex-col gap-1">
+              <label for="privateRoleSelect" class="text-[11px] font-bold text-slate-700">
+                1. Select Recipient Role
+              </label>
+              <div class="relative">
+                <select id="privateRoleSelect" onchange="handlePrivateRoleChange()" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-600">
+                  <option value="hod" selected>HOD (Head of Department)</option>
+                  <option value="management">Management / Campus Dean</option>
+                  <option value="faculty">Faculty Member</option>
+                  <option value="staff">Staff / Hostel Warden</option>
+                </select>
+                <span class="material-symbols-outlined absolute right-2.5 top-2 text-slate-400 pointer-events-none text-base">expand_more</span>
+              </div>
+            </div>
+
+            <!-- Step 2: Specific Recipient Dropdown (Cascading) -->
+            <div class="flex flex-col gap-1">
+              <label for="privateRecipientSelect" class="text-[11px] font-bold text-slate-700">
+                2. Select Specific Person &amp; Department
+              </label>
+              <div class="relative">
+                <select id="privateRecipientSelect" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-600">
+                  <!-- Populated dynamically via JS -->
+                </select>
+                <span class="material-symbols-outlined absolute right-2.5 top-2 text-slate-400 pointer-events-none text-base">expand_more</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subject Line for Private Messages -->
+          <div class="flex flex-col gap-1 mt-0.5">
+            <label for="privateSubjectInput" class="text-[11px] font-bold text-slate-700">Subject / Matter</label>
+            <input type="text" id="privateSubjectInput" placeholder="e.g. Confidential concern regarding lab equipment safety or grading" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600" />
+          </div>
+
+          <!-- Option to also keep sender anonymous inside private message -->
+          <label class="flex items-center gap-2 cursor-pointer select-none mt-1">
+            <input type="checkbox" id="privateAnonToggle" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"/>
+            <span class="text-xs font-medium text-slate-700">Send privately as an <strong>Anonymous Student</strong> (recipient cannot see your identity)</span>
+          </label>
+        </div>
+
+        <!-- Textarea Description -->
+        <div class="flex flex-col gap-1.5">
+          <label for="incidentText" id="incidentTextLabel" class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Issue Description
+          </label>
+          <textarea id="incidentText" rows="3" required
+            class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition-all resize-none leading-relaxed"
+            placeholder="e.g. No running water in Block C floor 2 bathrooms since morning, faucets are completely dry..."
+          >No water in Block C since morning, washrooms unusable on floor 2.</textarea>
+
+          <!-- Friendly Smart Helper Pill (Non-intrusive) -->
+          <div id="smartHelper" class="mt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-brand-50/70 border border-brand-100 text-xs text-brand-900">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-brand-700 text-base">auto_awesome</span>
+              <span id="smartHelperCategory" class="font-bold">Water &amp; Plumbing &bull; Urgent</span>
+            </div>
+            <span id="smartHelperNote" class="text-slate-600 font-medium text-[11px]">
+              💡 37 other students in Block C reported this. Your report will be linked to speed up resolution!
+            </span>
+          </div>
+        </div>
+
+        <!-- Location & Photo Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Location Picker -->
+          <div class="flex flex-col gap-1.5">
+            <label for="locationSelect" class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Location
+            </label>
+            <div class="relative">
+              <select id="locationSelect" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 appearance-none cursor-pointer">
+                <option value="hostel-c-2" selected>Hostel Block C (Floor 2)</option>
+                <option value="cs-lab-3">Computer Lab Complex (Lab 3)</option>
+                <option value="dining-1">Dining Hall 1 (Main Servery)</option>
+                <option value="science-quad">Science Quad (Academic Wing B)</option>
+                <option value="lib-3-east">Main Library (3rd Floor)</option>
+              </select>
+              <span class="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 pointer-events-none">expand_more</span>
+            </div>
+          </div>
+
+          <!-- Photo Upload -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Photo / Attachment (Optional)
+            </label>
+            <div onclick="triggerFileUpload()" class="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 rounded-xl flex items-center justify-between text-xs text-slate-600 cursor-pointer transition-colors">
+              <span id="uploadLabel" class="truncate">Add photo of the issue</span>
+              <span class="material-symbols-outlined text-slate-400">add_photo_alternate</span>
+              <input type="file" id="mediaInput" class="hidden" accept="image/*" onchange="handleFileSelected(event)"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit CTA Strip -->
+        <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div id="submitModeIndicator" class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm text-brand-600">verified_user</span>
+            <span id="submitModeNotice">Submitting as: Verified User (Public Campus Ticket)</span>
+          </div>
+
+          <button type="submit" id="btnSubmitComplaint" class="px-6 py-3 rounded-xl bg-brand-700 hover:bg-brand-600 text-white font-bold text-sm shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 active:scale-95">
+            <span id="submitBtnText">Submit Report</span>
+            <span id="submitBtnIcon" class="material-symbols-outlined text-base">send</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 2. STUDENT VIEW: MY TICKET HISTORY & SUBMISSIONS -->
+  <!-- ========================================================================= -->
+  <main id="viewStudentHistory" class="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full hidden fade-in">
+    
+    <!-- Title -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">My Ticket History &amp; Submissions</h1>
+        <p class="text-slate-600 text-xs mt-0.5">
+          Review past issues you reported, check ongoing resolution progress, and view replies to confidential messages.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="loadStudentHistory()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-xs transition-colors">
+          <span class="material-symbols-outlined text-sm text-slate-500">refresh</span>
+          <span>Refresh History</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sub-tabs: My Reported Tickets vs Sent Private Messages -->
+    <div class="flex items-center gap-2 p-1.5 bg-slate-200/70 rounded-2xl w-fit mb-6 text-xs font-bold">
+      <button onclick="switchStudentHistoryTab('tickets')" id="tabMyTicketsBtn" class="px-4 py-2 rounded-xl bg-white text-slate-900 shadow-xs transition-all flex items-center gap-2">
+        <span class="material-symbols-outlined text-base text-brand-700">confirmation_number</span>
+        <span>My Reported Tickets</span>
+        <span id="badgeMyTicketCount" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-extrabold text-[10px]">0</span>
+      </button>
+
+      <button onclick="switchStudentHistoryTab('private')" id="tabMyPrivateBtn" class="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 transition-all flex items-center gap-2">
+        <span class="material-symbols-outlined text-base text-indigo-700">lock</span>
+        <span>My Sent Private Messages</span>
+        <span id="badgeMyPrivateCount" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-extrabold text-[10px]">0</span>
+      </button>
+    </div>
+
+    <!-- Container 1: Student's Reported Tickets -->
+    <div id="studentTicketsContainer" class="flex flex-col gap-4">
+      <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
+        Loading your ticket history...
+      </div>
+    </div>
+
+    <!-- Container 2: Student's Sent Private Messages -->
+    <div id="studentPrivateContainer" class="hidden flex flex-col gap-4">
+      <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
+        Loading confidential messages...
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 3. CAMPUS LIVE ISSUES: ACTIVE-ONLY FEED (WITH 1-VOTE PER STUDENT) -->
+  <!-- ========================================================================= -->
+  <main id="viewStudentFeed" class="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full hidden fade-in">
+    
+    <!-- Title & CTA to Resolved Archive -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Campus Live Issues</h1>
+          <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">Active Only</span>
+        </div>
+        <p class="text-slate-600 text-xs mt-0.5">
+          Real-time feed of active problems across dorms, labs, and classrooms. Students can endorse tickets to elevate repair urgency.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="switchView('faculty-archive')" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl text-xs font-bold text-indigo-800 transition-colors shadow-2xs">
+          <span class="material-symbols-outlined text-sm">inventory_2</span>
+          <span>View Resolved Ticket Archive &rarr;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Filters -->
+    <div class="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl text-xs font-semibold w-fit mb-5">
+      <button onclick="filterStudentFeed('all')" id="feedFilterAll" class="px-3.5 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs">
+        All Active Tickets
+      </button>
+      <button onclick="filterStudentFeed('critical')" id="feedFilterCritical" class="px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+        Urgent Attention
+      </button>
+    </div>
+
+    <!-- Active Feed Container -->
+    <div id="studentFeedContainer" class="flex flex-col gap-4">
+      <div class="text-center py-10 text-slate-400 text-sm">Loading active campus issues...</div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 4. FACULTY & STAFF VIEW: INCIDENT CONSOLE (NON-CLIPPING FLEXBOX TABLE) -->
+  <!-- ========================================================================= -->
+  <main id="viewFacultyConsole" class="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full hidden fade-in">
+    
+    <!-- Title & Top Summary -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Faculty &amp; Staff Incident Console</h1>
+        <p class="text-slate-600 text-xs mt-0.5">
+          Monitor incoming reports, inspect creator details, track multi-student clusters, and log resolution actions.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="fetchAdminIssues()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-xs transition-colors">
+          <span class="material-symbols-outlined text-sm text-slate-500">refresh</span>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 Metrics Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <!-- Active Issues -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider">Active Issues</span>
+          <span class="material-symbols-outlined text-brand-600 text-xl">confirmation_number</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpiActiveClusters" class="text-2xl sm:text-3xl font-extrabold text-slate-900">24</span>
+          <span class="text-xs text-slate-500">consolidated</span>
+        </div>
+        <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
+          <span>From raw reports:</span>
+          <span id="kpiTotalComplaints" class="font-bold text-slate-700">247</span>
+        </div>
+      </div>
+
+      <!-- Urgent / High Priority -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider text-rose-700">Urgent Attention</span>
+          <span class="material-symbols-outlined text-rose-600 text-xl">warning</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpiCriticalIssues" class="text-2xl sm:text-3xl font-extrabold text-rose-600">8</span>
+          <span class="text-xs text-rose-700 font-semibold bg-rose-50 px-1.5 py-0.5 rounded">High impact</span>
+        </div>
+        <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-rose-600 font-medium">
+          Priority: Block C Water Outage
+        </div>
+      </div>
+
+      <!-- In Progress / Teams Dispatched -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider text-amber-700">Under Work</span>
+          <span class="material-symbols-outlined text-amber-600 text-xl">engineering</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpiInProgress" class="text-2xl sm:text-3xl font-extrabold text-slate-900">14</span>
+          <span class="text-xs text-slate-500">teams on-site</span>
+        </div>
+        <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
+          <span>Response Teams:</span>
+          <span class="font-bold text-slate-700">6 Teams</span>
+        </div>
+      </div>
+
+      <!-- Resolved Today -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Resolved Today</span>
+          <span class="material-symbols-outlined text-emerald-600 text-xl">check_circle</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpiResolvedIssues" class="text-2xl sm:text-3xl font-extrabold text-emerald-600">183</span>
+          <span class="text-xs text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">98% on-time</span>
+        </div>
+        <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
+          <span>Average fix time:</span>
+          <span class="font-bold text-slate-700">4.2 hours</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search & Filters Strip -->
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <!-- Search -->
+      <div class="relative flex-1">
+        <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">search</span>
+        <input id="adminSearchInput" oninput="handleAdminSearch()" type="text"
+          class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+          placeholder="Search by case title, building, or ticket # (e.g. CAMP-421)..."
+        />
+      </div>
+
+      <!-- Filter dropdowns -->
+      <div class="flex items-center gap-2 text-xs">
+        <select id="adminCategoryFilter" onchange="fetchAdminIssues()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 cursor-pointer">
+          <option value="all">All Categories</option>
+          <option value="hostel">Water / Plumbing</option>
+          <option value="it">Wi-Fi / Network</option>
+          <option value="electrical">Electrical</option>
+          <option value="food">Mess &amp; Food</option>
+          <option value="academics">Facilities &amp; Furniture</option>
+        </select>
+
+        <select id="adminStatusFilter" onchange="fetchAdminIssues()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 cursor-pointer">
+          <option value="all">All Statuses</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="assigned">Assigned</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Non-Clipping Flexbox Incident Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto mb-8">
+      <table class="w-full text-left border-collapse text-xs min-w-[1100px]">
+        <thead>
+          <tr class="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
+            <th class="py-3.5 px-4 w-28">Status</th>
+            <th class="py-3.5 px-4 min-w-[220px]">Issue &amp; Location</th>
+            <th class="py-3.5 px-4 w-44">Reported By</th>
+            <th class="py-3.5 px-4 w-32">Category</th>
+            <th class="py-3.5 px-4 w-36">Merged Reports</th>
+            <th class="py-3.5 px-4 w-36">Assigned Team</th>
+            <th class="py-3.5 px-4 w-24">Ticket</th>
+            <th class="py-3.5 px-4 w-52 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="adminTableBody" class="divide-y divide-slate-100 font-medium text-slate-800">
+          <tr>
+            <td colspan="8" class="text-center py-10 text-slate-400">Loading incident records...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bottom Section: Trouble Spots (Hotspots by Location) -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Active Trouble Spots by Location</h3>
+          <p class="text-xs text-slate-500">Buildings currently generating the highest volume of student reports.</p>
+        </div>
+        <span class="text-xs text-brand-700 font-semibold bg-brand-50 px-2.5 py-1 rounded-lg">Real-Time</span>
+      </div>
+
+      <div id="hotspotListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 5. RESOLVED TICKET ARCHIVE & COMPLETE TICKET HISTORY -->
+  <!-- ========================================================================= -->
+  <main id="viewFacultyArchive" class="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full hidden fade-in">
+    
+    <!-- Title & Top Summary -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Resolved Ticket Archive</h1>
+          <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">Historical Records</span>
+        </div>
+        <p class="text-slate-600 text-xs mt-0.5">
+          Complete repository of all verified past resolved and closed maintenance cases with verified staff action notes.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="loadResolvedArchive()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-xs transition-colors">
+          <span class="material-symbols-outlined text-sm text-slate-500">refresh</span>
+          <span>Refresh Archive</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search Strip -->
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs mb-4 flex items-center justify-between gap-3">
+      <div class="relative flex-1">
+        <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">search</span>
+        <input id="archiveSearchInput" oninput="handleArchiveSearch()" type="text"
+          class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+          placeholder="Search resolved records by case ID, title, building, or description..."
+        />
+      </div>
+    </div>
+
+    <!-- Archive Table (Dynamic Non-Clipping) -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto mb-8">
+      <table class="w-full text-left border-collapse text-xs min-w-[1100px]">
+        <thead>
+          <tr class="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
+            <th class="py-3.5 px-4 w-28">Ticket</th>
+            <th class="py-3.5 px-4 min-w-[240px]">Resolved Issue &amp; Location</th>
+            <th class="py-3.5 px-4 w-40">Reported By</th>
+            <th class="py-3.5 px-4 w-32">Category</th>
+            <th class="py-3.5 px-4 w-36">Impact / Merged</th>
+            <th class="py-3.5 px-4 w-36">Assigned Team</th>
+            <th class="py-3.5 px-4 w-52 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="archiveTableBody" class="divide-y divide-slate-100 font-medium text-slate-800">
+          <tr>
+            <td colspan="7" class="text-center py-10 text-slate-400">Loading historical resolved archive...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 6. PRIVATE & CONFIDENTIAL MESSAGES (RECIPIENT ISOLATED INBOX) -->
+  <!-- ========================================================================= -->
+  <main id="viewFacultyMessages" class="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full hidden fade-in">
+    
+    <!-- Title & Top Summary -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Confidential Private Messages</h1>
+          <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-bold">Confidential Inbox</span>
+        </div>
+        <p class="text-slate-600 text-xs mt-0.5">
+          Student inquiries and confidential grievances directed specifically to your office. Accessible only by you.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="loadPrivateInbox()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-xs transition-colors">
+          <span class="material-symbols-outlined text-sm text-slate-500">refresh</span>
+          <span>Refresh Inbox</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages Container -->
+    <div id="facultyMessagesContainer" class="flex flex-col gap-4">
+      <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
+        Loading confidential messages...
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL / DRAWER: MERGED STUDENT TICKETS & INCIDENT DETAILS -->
+  <!-- ========================================================================= -->
+  <div id="drawerOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden transition-opacity" onclick="closeComplaintDrawer()"></div>
+  <aside id="complaintInspectDrawer" class="fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-white shadow-2xl p-6 flex flex-col justify-between overflow-y-auto transform translate-x-full transition-transform duration-200">
+    <div>
+      <!-- Drawer Header -->
+      <div class="flex items-start justify-between pb-4 border-b border-slate-200">
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="drawerCaseId" class="text-xs font-bold text-brand-700 font-mono">ISSUE-2026-00421</span>
+            <span id="drawerStatusBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">In Progress</span>
+          </div>
+          <h2 id="drawerTitle" class="text-base font-bold text-slate-900 mt-1">Water supply outage in Block C</h2>
+          <p id="drawerSubtitle" class="text-xs text-slate-500 mt-0.5">Block C, Floor 2 &bull; 37 Student Reports Merged</p>
+        </div>
+        <button onclick="closeComplaintDrawer()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Quick Action: Change Status & Reassign -->
+      <div class="my-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div>
+          <span class="text-slate-500 font-medium">Assigned Team:</span>
+          <span id="drawerTeamName" class="font-bold text-slate-800 ml-1">Hostel Maintenance</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Show Action Log Button -->
+          <button onclick="openActionLogModal(currentDrawerIssueId)" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold flex items-center gap-1 shadow-2xs transition-colors">
+            <span class="material-symbols-outlined text-xs">history</span>
+            <span>Show Action Log</span>
+          </button>
+          <div id="drawerStatusBtnGroup" class="flex items-center gap-2">
+            <button onclick="promptStatusUpdate(currentDrawerIssueId, 'IN_PROGRESS')" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold transition-colors">
+              Mark In Progress
+            </button>
+            <button onclick="promptStatusUpdate(currentDrawerIssueId, 'RESOLVED')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs transition-colors">
+              Mark Resolved
+            </button>
+          </div>
+          <div id="drawerStudentRestrictedNotice" class="hidden px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800">
+            Status changes restricted to Faculty &amp; Staff
+          </div>
+        </div>
+      </div>
+
+      <!-- Merged Student Reports Section -->
+      <div class="mt-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            All Merged Student Reports (<span id="drawerComplaintCount">37</span>)
+          </h3>
+          <span class="text-[11px] text-slate-500">Consolidated into this single ticket</span>
+        </div>
+
+        <div id="drawerComplaintsList" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="pt-4 border-t border-slate-200 flex items-center justify-between text-xs">
+      <span class="text-slate-500 font-medium">Jira Ticket: <strong id="drawerJiraKey" class="text-slate-700 font-mono">CAMP-421</strong></span>
+      <button onclick="closeComplaintDrawer()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold">
+        Close
+      </button>
+    </div>
+  </aside>
+
+  <!-- Clean Minimal Footer -->
+  <footer class="border-t border-slate-200 bg-white py-4 mt-12 text-center text-xs text-slate-500">
+    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <span>&copy; 2024 University CampusPulse. Simple, centralized issue reporting.</span>
+      <div class="flex items-center gap-4">
+        <span class="text-slate-400">Campus Facilities &bull; IT Network &bull; Hostel Wardens</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 1: AUTHENTICATION & ROLE SWITCHER (CREDENTIALS IN USERS.TXT) -->
+  <!-- ========================================================================= -->
+  <div id="authModalOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden fade-in">
+      <!-- Modal Header -->
+      <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-brand-700 text-white flex items-center justify-center font-black text-base shadow-xs">
+            CP
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-900 leading-tight">CampusPulse Login &amp; Role Access</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Switch role or log in with credentials saved in <span class="font-mono font-semibold text-brand-700">users.txt</span></p>
+          </div>
+        </div>
+        <button onclick="closeAuthModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+        <!-- 1-Click Persona Cards -->
+        <div>
+          <div class="flex items-center justify-between mb-2.5">
+            <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Quick Switch: 5 System Roles</span>
+            <span class="text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">Instant 1-Click Auth</span>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- Student Rohit -->
+            <div onclick="quickLoginUser('student_rohit', 'student@123')" class="p-3 rounded-2xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 cursor-pointer transition-all flex items-start gap-3 group">
+              <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                RV
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 group-hover:text-blue-900">Rohit Verma</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-100 text-blue-800">STUDENT</span>
+                </div>
+                <div class="text-[11px] text-slate-500 truncate">ID: student_rohit &bull; Pass: student@123</div>
+                <div class="text-[10px] text-slate-400 mt-1">Can report &amp; track; restricted from faculty dashboard</div>
+              </div>
+            </div>
+
+            <!-- Faculty Sharma -->
+            <div onclick="quickLoginUser('prof_sharma', 'faculty@123')" class="p-3 rounded-2xl border border-slate-200 hover:border-purple-400 hover:bg-purple-50/40 cursor-pointer transition-all flex items-start gap-3 group">
+              <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                RS
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 group-hover:text-purple-900">Prof. Rajesh Sharma</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-purple-100 text-purple-800">FACULTY</span>
+                </div>
+                <div class="text-[11px] text-slate-500 truncate">ID: prof_sharma &bull; Pass: faculty@123</div>
+                <div class="text-[10px] text-slate-400 mt-1">Full console access &amp; action logging with comments</div>
+              </div>
+            </div>
+
+            <!-- HOD Mukherjee -->
+            <div onclick="quickLoginUser('hod_cse', 'hod@123')" class="p-3 rounded-2xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50/40 cursor-pointer transition-all flex items-start gap-3 group">
+              <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                AM
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 group-hover:text-amber-900">Dr. Ananya Mukherjee</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800">HOD</span>
+                </div>
+                <div class="text-[11px] text-slate-500 truncate">ID: hod_cse &bull; Pass: hod@123</div>
+                <div class="text-[10px] text-slate-400 mt-1">Dept. oversight, priority triage &amp; HOD action notes</div>
+              </div>
+            </div>
+
+            <!-- Management Dean -->
+            <div onclick="quickLoginUser('admin_dean', 'mgmt@123')" class="p-3 rounded-2xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 cursor-pointer transition-all flex items-start gap-3 group">
+              <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                EV
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 group-hover:text-emerald-900">Dean E. Vance</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800">MANAGEMENT</span>
+                </div>
+                <div class="text-[11px] text-slate-500 truncate">ID: admin_dean &bull; Pass: mgmt@123</div>
+                <div class="text-[10px] text-slate-400 mt-1">Campus SLA, executive oversight, resolution management</div>
+              </div>
+            </div>
+
+            <!-- Staff Singh (Hostel Warden) -->
+            <div onclick="quickLoginUser('staff_singh', 'staff@123')" class="p-3 rounded-2xl border border-slate-200 hover:border-cyan-400 hover:bg-cyan-50/40 cursor-pointer transition-all flex items-start gap-3 group sm:col-span-2">
+              <div class="w-8 h-8 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-cyan-600 group-hover:text-white transition-colors">
+                SS
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 group-hover:text-cyan-900">Suresh Singh (Hostel Warden)</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-cyan-100 text-cyan-800">STAFF</span>
+                </div>
+                <div class="text-[11px] text-slate-500 truncate">ID: staff_singh &bull; Pass: staff@123</div>
+                <div class="text-[10px] text-slate-400 mt-1">On-site facility maintenance updates &amp; team resolution notes</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-3 pt-3 border-t border-slate-100">
+            <label class="block text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1">
+              <span class="material-symbols-outlined text-xs text-brand-600">badge</span>
+              <span>Select Any Pre-Configured Campus Account (17 Users):</span>
+            </label>
+            <select id="quickUserSelect" onchange="if(this.value){ const [u, p] = this.value.split('|'); quickLoginUser(u, p); }" class="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600 cursor-pointer transition-colors">
+              <option value="">-- Choose From 17 Registered Campus Personas --</option>
+              <optgroup label="Students (Reporting & Voting)">
+                <option value="student_rohit|student@123">Rohit Verma — Computer Science (student_rohit)</option>
+                <option value="student_priya|student@123">Priya Sengupta — Electronics & Comm. (student_priya)</option>
+                <option value="student_arjun|student@123">Arjun Das — Mechanical Engineering (student_arjun)</option>
+                <option value="student_neha|student@123">Neha Roy — Civil Engineering (student_neha)</option>
+              </optgroup>
+              <optgroup label="Faculty (Incident Console & Action Logs)">
+                <option value="prof_sharma|faculty@123">Prof. Rajesh Sharma — Electrical Eng. (prof_sharma)</option>
+                <option value="prof_gupta|faculty@123">Prof. Sunita Gupta — Computer Science (prof_gupta)</option>
+                <option value="prof_chatterjee|faculty@123">Prof. Subhash Chatterjee — Civil & Infra (prof_chatterjee)</option>
+              </optgroup>
+              <optgroup label="Heads of Department (HOD - Department & Confidential Inbox)">
+                <option value="hod_cse|hod@123">Dr. Ananya Mukherjee — HOD CSE (hod_cse)</option>
+                <option value="hod_ee|hod@123">Dr. Vikramaditya Roy — HOD EE (hod_ee)</option>
+                <option value="hod_mech|hod@123">Dr. Arundhati Sen — HOD ME (hod_mech)</option>
+              </optgroup>
+              <optgroup label="Campus Leadership & Management (Oversight & Appeals)">
+                <option value="admin_dean|mgmt@123">Dean E. Vance — Student Affairs (admin_dean)</option>
+                <option value="dean_academics|mgmt@123">Dr. K. S. Ramanujan — Dean Academics (dean_academics)</option>
+                <option value="director_campus|mgmt@123">Dr. Meera Iyer — Campus Director & Provost (director_campus)</option>
+              </optgroup>
+              <optgroup label="Maintenance Staff & Wardens (On-Site Resolution)">
+                <option value="staff_singh|staff@123">Suresh Singh — Hostel Block Warden (staff_singh)</option>
+                <option value="staff_ramesh|staff@123">Ramesh Kumar — Chief Electrician (staff_ramesh)</option>
+                <option value="staff_anil|staff@123">Anil Karmakar — Plumbing Tech (staff_anil)</option>
+                <option value="staff_it_samir|staff@123">Samir Dutta — IT Network Helpdesk (staff_it_samir)</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-slate-200"></div>
+          <span class="flex-shrink mx-3 text-[11px] font-semibold text-slate-400 uppercase">Or Sign In Manually</span>
+          <div class="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        <!-- Manual Login Form -->
+        <form onsubmit="handleManualLogin(event)" class="space-y-3">
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">Login ID (Username)</label>
+            <input type="text" id="loginUsername" required placeholder="e.g. hod_cse or student_rohit" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"/>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">Password</label>
+            <input type="password" id="loginPassword" required placeholder="Enter password" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"/>
+          </div>
+          <div id="loginErrorMessage" class="hidden p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium"></div>
+
+          <button type="submit" id="btnLoginSubmit" class="w-full py-2.5 rounded-xl bg-brand-700 hover:bg-brand-600 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2">
+            <span>Log In with Credentials</span>
+            <span class="material-symbols-outlined text-sm">login</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <span class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm text-slate-400">description</span>
+          <span>Full credentials file: <strong class="text-slate-700">users.txt</strong></span>
+        </span>
+        <button onclick="closeAuthModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 2: UPDATE TICKET STATUS & OPTIONAL WORK COMMENT -->
+  <!-- ========================================================================= -->
+  <div id="statusModalOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden fade-in">
+      <!-- Header -->
+      <div class="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="modalStatusCaseId" class="text-xs font-bold text-brand-700 font-mono">ISSUE-2026-00421</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700">Status Update</span>
+          </div>
+          <h2 id="modalStatusTitle" class="text-sm font-bold text-slate-900 mt-1">Water supply outage in Block C</h2>
+        </div>
+        <button onclick="closeStatusModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-4">
+        <!-- New Status Choice -->
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Select New Status</label>
+          <select id="modalStatusSelect" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+            <option value="IN_PROGRESS">In Progress (Maintenance team dispatched)</option>
+            <option value="RESOLVED">Resolved (Issue fixed &amp; verified)</option>
+            <option value="ASSIGNED">Assigned (Sent to department team)</option>
+            <option value="OPEN">Open (Awaiting triage)</option>
+            <option value="CLOSED">Closed (Archived)</option>
+          </select>
+        </div>
+
+        <!-- Actor Notice -->
+        <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs text-indigo-900">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-indigo-600 text-base">badge</span>
+            <span>Logging action as: <strong id="modalStatusActorName">Prof. Rajesh Sharma</strong></span>
+          </div>
+          <span id="modalStatusActorRole" class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-indigo-200/80 text-indigo-800">FACULTY</span>
+        </div>
+
+        <!-- Optional Comment Input -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-slate-700">Optional Action Comment / Work Note</label>
+            <span class="text-[11px] text-slate-400">Recorded in Action Log</span>
+          </div>
+          <textarea id="modalStatusComment" rows="3" placeholder="e.g. Clean water booster pump valve replaced on 2nd floor. Flow restored." class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"></textarea>
+          
+          <!-- Quick Suggestion Chips -->
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <button type="button" onclick="insertQuickComment('Inspection completed; repair team on-site')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-medium transition-colors">
+              + Team on-site
+            </button>
+            <button type="button" onclick="insertQuickComment('Booster pump valve replaced and tested')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-medium transition-colors">
+              + Hardware replaced
+            </button>
+            <button type="button" onclick="insertQuickComment('Repairs verified with hostel warden. Clean water restored.')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-medium transition-colors">
+              + Verified resolved
+            </button>
+            <button type="button" onclick="insertQuickComment('Escalated to facilities superintendent')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-medium transition-colors">
+              + Escalated
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button onclick="closeStatusModal()" class="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold transition-colors">
+          Cancel
+        </button>
+        <button onclick="submitStatusUpdateModal()" id="btnSubmitStatusModal" class="px-5 py-2 rounded-xl bg-brand-700 hover:bg-brand-600 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5">
+          <span>Confirm &amp; Log Action</span>
+          <span class="material-symbols-outlined text-sm">check</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 3: SHOW ACTION LOG & COMPLETE AUDIT HISTORY -->
+  <!-- ========================================================================= -->
+  <div id="actionLogModalOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden fade-in flex flex-col max-h-[85vh]">
+      <!-- Header -->
+      <div class="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-brand-700 text-lg">history</span>
+            <h2 class="text-sm font-bold text-slate-900">Ticket Action Log &amp; Audit Trail</h2>
+            <span id="modalActionCaseId" class="text-xs font-bold font-mono text-brand-700 ml-1">ISSUE-2026-00421</span>
+          </div>
+          <p id="modalActionTitle" class="text-xs text-slate-500 mt-0.5">Water supply outage in Block C &bull; History of all status changes &amp; staff notes</p>
+        </div>
+        <button onclick="closeActionLogModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Action Log Timeline List -->
+      <div class="p-6 overflow-y-auto flex-1">
+        <div id="actionLogTimelineContainer" class="space-y-4">
+          <!-- Dynamically populated via JS -->
+          <div class="text-center py-10 text-slate-400 text-xs">Loading ticket action history...</div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
+        <span class="text-slate-400 text-[11px]">All member actions are logged with role and optional comment</span>
+        <button onclick="closeActionLogModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold transition-colors">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 4: CONFIDENTIAL REPLY TO PRIVATE MESSAGE -->
+  <!-- ========================================================================= -->
+  <div id="privateReplyModalOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden fade-in">
+      <!-- Header -->
+      <div class="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-indigo-700 text-lg">reply</span>
+            <span class="text-xs font-bold text-indigo-800 font-mono" id="modalReplyMsgId">MSG-001</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800">Confidential Reply</span>
+          </div>
+          <h2 id="modalReplySubject" class="text-sm font-bold text-slate-900 mt-1">Lab Equipment Concern</h2>
+        </div>
+        <button onclick="closePrivateReplyModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-4">
+        <!-- Message Snippet -->
+        <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+          <div class="flex items-center justify-between text-slate-500 mb-1.5">
+            <span>From: <strong id="modalReplySenderName" class="text-slate-800">Sender</strong></span>
+            <span id="modalReplyDate" class="text-[11px]">Today</span>
+          </div>
+          <p id="modalReplyMessageText" class="text-slate-700 leading-relaxed italic bg-white p-2.5 rounded-xl border border-slate-100">
+            "Message text here..."
+          </p>
+        </div>
+
+        <!-- Actor info -->
+        <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs text-indigo-900">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-indigo-600 text-base">verified</span>
+            <span>Replying as: <strong id="modalReplyActorName">Staff Member</strong></span>
+          </div>
+          <span id="modalReplyActorRole" class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-indigo-200/80 text-indigo-800">STAFF</span>
+        </div>
+
+        <!-- Reply note input -->
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Your Confidential Response Note</label>
+          <textarea id="privateReplyComment" rows="4" required placeholder="Write your direct response to the student..." class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none"></textarea>
+          <span class="text-[11px] text-slate-400 mt-1 block">This note will only be visible to the student in their 'My Ticket History' portal.</span>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button onclick="closePrivateReplyModal()" class="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold transition-colors">
+          Cancel
+        </button>
+        <button onclick="submitPrivateReply()" id="btnSubmitPrivateReply" class="px-5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5">
+          <span>Send Response</span>
+          <span class="material-symbols-outlined text-sm">send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Controller -->
+  <script src="/app.js"></script>
+</body>
+</html>
