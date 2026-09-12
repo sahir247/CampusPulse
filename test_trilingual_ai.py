@@ -47,14 +47,14 @@ TEST_CASES = [
 
 def run_tests():
     print("=" * 75)
-    print("🌍 Testing CampusPulse Trilingual NLP Engine (English, Hindi, Bengali)")
+    print("[INFO] Testing CampusPulse Trilingual NLP Engine (English, Hindi, Bengali)")
     print("=" * 75)
 
     for tc in TEST_CASES:
         print(f"\n[{tc['lang']}] Input: '{tc['text']}'")
         res = requests.post(f"{BASE_URL}/api/complaints/preview", json={"text": tc["text"]})
         if res.status_code != 200:
-            print(f"  ❌ Failed HTTP: {res.status_code}")
+            print(f"  [FAIL] Failed HTTP: {res.status_code}")
             continue
 
         data = res.json()
@@ -64,19 +64,19 @@ def run_tests():
 
         cat_match = data["inferred_category"] == tc["expected_cat"]
         if cat_match:
-            print("  ✅ Category Classification: PASSED")
+            print("  [PASS] Category Classification: PASSED")
         else:
-            print(f"  ⚠️ Category Mismatch: Expected {tc['expected_cat']}, Got {data['inferred_category']}")
+            print(f"  [WARN] Category Mismatch: Expected {tc['expected_cat']}, Got {data['inferred_category']}")
 
         if tc.get("should_match_cluster"):
             cluster_match = data.get("matched_issue_id") == tc["should_match_cluster"]
             if cluster_match:
-                print(f"  ✅ Cross-Lingual Duplicate Match to {tc['should_match_cluster']}: PASSED ({int(data['similarity_score']*100)}% match)")
+                print(f"  [PASS] Cross-Lingual Duplicate Match to {tc['should_match_cluster']}: PASSED ({int(data['similarity_score']*100)}% match)")
             else:
-                print(f"  ⚠️ Cluster Match: Expected {tc['should_match_cluster']}, Got {data.get('matched_issue_id')}")
+                print(f"  [WARN] Cluster Match: Expected {tc['should_match_cluster']}, Got {data.get('matched_issue_id')}")
 
     print("\n" + "=" * 75)
-    print("🏆 ALL TRILINGUAL TESTS COMPLETED SUCCESSFULLY!")
+    print("[SUCCESS] ALL TRILINGUAL TESTS COMPLETED SUCCESSFULLY!")
     print("=" * 75)
 
 if __name__ == "__main__":

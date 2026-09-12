@@ -21,8 +21,8 @@ class SlackNotificationService:
         """
         Dispatches a rich Slack Alert block payload to operational response channels.
         """
-        emoji = "🚨" if priority_level == "CRITICAL" else "⚠️"
-        alert_title = f"{emoji} {priority_level} CAMPUS ISSUE: {case_id}"
+        tag = "[CRITICAL ALERT]" if priority_level == "CRITICAL" else "[PRIORITY ALERT]"
+        alert_title = f"{tag} {priority_level} CAMPUS ISSUE: {case_id}"
 
         payload = {
             "channel": slack_channel,

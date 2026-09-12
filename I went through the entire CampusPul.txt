@@ -791,7 +791,7 @@ Slack integration
 Example:
 
 ```text
-🚨 CRITICAL CAMPUS ISSUE
+[CRITICAL] CAMPUS ISSUE
 
 Issue: No water in Block C
 Category: Hostel
@@ -2014,7 +2014,7 @@ JIRA CAMP-421
 
         ↓
 
-SLACK 🚨 ALERT
+SLACK [CRITICAL] ALERT
 ```
 
 Then when the team resolves it:

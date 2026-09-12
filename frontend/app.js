@@ -521,10 +521,13 @@ async function triggerNLPPreview() {
 
     categoryEl.textContent = `${data.inferred_category} • ${data.urgency === 'CRITICAL' ? 'Urgent Priority' : 'Standard Priority'}`;
 
+    const lightbulbSvg = `<svg class="inline-block w-3.5 h-3.5 mr-1 text-amber-600 align-text-bottom shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>`;
+    const sparkleSvg = `<svg class="inline-block w-3.5 h-3.5 mr-1 text-indigo-600 align-text-bottom shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+
     if (data.potential_duplicate) {
-      noteEl.textContent = `💡 Other students reported a similar problem in this area. Your report will be linked to speed up maintenance!`;
+      noteEl.innerHTML = `${lightbulbSvg}<span>Other students reported a similar problem in this area. Your report will be linked to speed up maintenance!</span>`;
     } else {
-      noteEl.textContent = `✨ New campus report. Will be sent directly to the response team.`;
+      noteEl.innerHTML = `${sparkleSvg}<span>New campus report. Will be sent directly to the response team.</span>`;
     }
   } catch (err) {
     console.error('NLP preview error:', err);

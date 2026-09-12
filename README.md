@@ -12,7 +12,7 @@
 
 ---
 
-## 📽️ Live Demonstration & Visual Tour
+## <img src="assets/icons/video.svg" width="22" height="22" valign="middle" /> Live Demonstration &amp; Visual Tour
 
 ### Full End-to-End System Walkthrough (GIF)
 ![CampusPulse Demo Walkthrough](assets/campuspulse_demo.gif)
@@ -40,7 +40,7 @@
 
 ---
 
-## 🌟 Key Problems Solved & Feature Highlights
+## <img src="assets/icons/sparkles.svg" width="22" height="22" valign="middle" /> Key Problems Solved &amp; Feature Highlights
 
 1. **Trilingual Multilingual AI Classification (English, Hindi, Bengali)**:
    - Understands native scripts and colloquial transliterations (e.g., *"AC is leaking in CS Lab"*, *"वाटर कूलर से पानी बह रहा है"*, *"পানি পড়ার জন্য ল্যাবে শর্টসার্কিট হতে পারে"*).
@@ -72,7 +72,7 @@
 
 ---
 
-## 🔑 Demo User Accounts & Credentials
+## <img src="assets/icons/key.svg" width="22" height="22" valign="middle" /> Demo User Accounts &amp; Credentials
 
 The system comes pre-populated with **17 registered campus accounts** spanning all five roles (also saved in [`users.txt`](users.txt)):
 
@@ -100,7 +100,7 @@ The system comes pre-populated with **17 registered campus accounts** spanning a
 
 ---
 
-## 🏗️ Architecture & Technical Design
+## <img src="assets/icons/architecture.svg" width="22" height="22" valign="middle" /> Architecture &amp; Technical Design
 
 For an in-depth exploration of the system architecture, mathematical formulas, vector clustering algorithms, and database schemas, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
@@ -117,7 +117,7 @@ flowchart LR
 
 ---
 
-## 💻 Technology Stack
+## <img src="assets/icons/cpu.svg" width="22" height="22" valign="middle" /> Technology Stack
 
 - **Backend**: Python 3.11, [FastAPI](https://fastapi.tiangolo.com/), Uvicorn, SQLite 3 (WAL Mode), Pydantic v2.
 - **AI & NLP**: PyTorch, [Sentence-Transformers](https://www.sbert.net/) (`paraphrase-multilingual-mpnet-base-v2`), Scikit-Learn, NumPy.
@@ -126,7 +126,7 @@ flowchart LR
 
 ---
 
-## 🚀 Getting Started & Local Setup
+## <img src="assets/icons/rocket.svg" width="22" height="22" valign="middle" /> Getting Started &amp; Local Setup
 
 ### 1. Prerequisites
 - **Python 3.11+** installed on your system.
@@ -165,7 +165,7 @@ Navigate to **`http://127.0.0.1:8000/`** in any modern web browser.
 
 ---
 
-## 📡 REST API Reference
+## <img src="assets/icons/api.svg" width="22" height="22" valign="middle" /> REST API Reference
 
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
@@ -186,7 +186,7 @@ Navigate to **`http://127.0.0.1:8000/`** in any modern web browser.
 
 ---
 
-## 🧪 Automated Testing & Verification
+## <img src="assets/icons/flask.svg" width="22" height="22" valign="middle" /> Automated Testing &amp; Verification
 
 Run the comprehensive test suites to verify end-to-end functionality:
 
@@ -205,5 +205,5 @@ All test suites should exit with code `0`.
 
 ---
 
-## 📄 License
+## <img src="assets/icons/document.svg" width="22" height="22" valign="middle" /> License
 This project is licensed under the **MIT License**.
