@@ -75,6 +75,7 @@ def get_all_locations():
     conn.close()
     return rows
 
+# Locations and Teams lookup endpoints
 @app.get("/api/teams", tags=["Metadata"])
 def get_all_teams():
     conn = get_connection()
@@ -83,6 +84,45 @@ def get_all_teams():
     rows = [dict(r) for r in cursor.fetchall()]
     conn.close()
     return rows
+
+# File Upload Endpoint & Uploads Static Directory
+uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
+from fastapi import UploadFile, File, Form, HTTPException
+import uuid
+
+@app.post("/api/upload", tags=["Uploads"])
+async def upload_attachment(file: UploadFile = File(...)):
+    """Uploads an incident photo / attachment and returns its accessible static URL."""
+    try:
+        # Read content and validate size (10MB limit)
+        contents = await file.read()
+        if len(contents) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File exceeds maximum size of 10MB.")
+        
+        # Determine safe extension
+        ext = os.path.splitext(file.filename or "")[1].lower()
+        if not ext or ext not in [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp"]:
+            ext = ".jpg"
+            
+        unique_name = f"evidence_{uuid.uuid4().hex[:12]}{ext}"
+        target_path = os.path.join(uploads_dir, unique_name)
+        
+        with open(target_path, "wb") as f:
+            f.write(contents)
+            
+        return {
+            "success": True,
+            "filename": unique_name,
+            "url": f"/uploads/{unique_name}",
+            "size": len(contents)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
 # Mount frontend static files
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")

@@ -105,7 +105,9 @@ def list_issues(
             creator_id=None if ("is_anonymous" in r.keys() and r["is_anonymous"]) else (r["creator_id"] if "creator_id" in r.keys() else None),
             is_anonymous=bool(r["is_anonymous"]) if "is_anonymous" in r.keys() else False,
             is_private=bool(r["is_private"]) if "is_private" in r.keys() else False,
-            has_voted=bool(r["id"] in user_voted_set)
+            has_voted=bool(r["id"] in user_voted_set),
+            image_url=r["image_url"] if "image_url" in r.keys() else None,
+            attachment_url=r["image_url"] if "image_url" in r.keys() else None
         )
         for r in rows
     ]
@@ -163,7 +165,9 @@ def get_resolved_archive(search: Optional[str] = None, limit: int = 50):
             creator_id=None if ("is_anonymous" in r.keys() and r["is_anonymous"]) else (r["creator_id"] if "creator_id" in r.keys() else None),
             is_anonymous=bool(r["is_anonymous"]) if "is_anonymous" in r.keys() else False,
             is_private=bool(r["is_private"]) if "is_private" in r.keys() else False,
-            has_voted=False
+            has_voted=False,
+            image_url=r["image_url"] if "image_url" in r.keys() else None,
+            attachment_url=r["image_url"] if "image_url" in r.keys() else None
         )
         for r in rows
     ]
@@ -189,8 +193,10 @@ def get_student_ticket_history(student_id: Optional[str] = None, user_id: Option
     cursor.execute(f"""
         SELECT c.id as complaint_id, c.raw_text, c.category, c.urgency, c.created_at as reported_at,
                c.is_anonymous, c.is_private, c.status as complaint_status,
+               c.image_url as complaint_image_url, c.image_url as image_url,
                i.id as issue_id, i.case_id, i.title as issue_title, i.status as issue_status,
                i.priority_level, i.complaint_count, i.upvote_count,
+               i.image_url as issue_image_url,
                l.name as location_name, t.name as assigned_team_name, i.resolved_at
         FROM complaints c
         LEFT JOIN issues i ON c.issue_id = i.id
@@ -261,6 +267,8 @@ def get_issue_detail(id: str):
             is_anonymous=bool(c["is_anonymous"]),
             issue_id=c["issue_id"],
             similarity_score=c["similarity_score"],
+            image_url=c["image_url"] if "image_url" in c.keys() else None,
+            attachment_url=c["image_url"] if "image_url" in c.keys() else None,
             created_at=c["created_at"]
         )
         for c in complaint_rows
@@ -304,6 +312,13 @@ def get_issue_detail(id: str):
         created_at=r["created_at"],
         updated_at=r["updated_at"],
         resolved_at=r["resolved_at"],
+        creator_name="Anonymous Student" if ("is_anonymous" in r.keys() and r["is_anonymous"]) else (r["creator_name"] if "creator_name" in r.keys() and r["creator_name"] else "Verified Student"),
+        creator_id=None if ("is_anonymous" in r.keys() and r["is_anonymous"]) else (r["creator_id"] if "creator_id" in r.keys() else None),
+        is_anonymous=bool(r["is_anonymous"]) if "is_anonymous" in r.keys() else False,
+        is_private=bool(r["is_private"]) if "is_private" in r.keys() else False,
+        has_voted=False,
+        image_url=r["image_url"] if "image_url" in r.keys() else None,
+        attachment_url=r["image_url"] if "image_url" in r.keys() else None,
         complaints=complaints,
         timeline=timeline
     )

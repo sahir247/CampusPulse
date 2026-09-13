@@ -64,6 +64,7 @@ def init_db():
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         resolved_at TEXT,
+        image_url TEXT,
         FOREIGN KEY (location_id) REFERENCES locations(id),
         FOREIGN KEY (assigned_team_id) REFERENCES teams(id)
     );
@@ -84,6 +85,7 @@ def init_db():
         is_anonymous INTEGER DEFAULT 1,
         issue_id TEXT,
         similarity_score REAL,
+        image_url TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (location_id) REFERENCES locations(id),
         FOREIGN KEY (issue_id) REFERENCES issues(id)
@@ -189,6 +191,8 @@ def init_db():
         cursor.execute("ALTER TABLE complaints ADD COLUMN recipient_id TEXT")
     if "recipient_role" not in c_cols:
         cursor.execute("ALTER TABLE complaints ADD COLUMN recipient_role TEXT")
+    if "image_url" not in c_cols:
+        cursor.execute("ALTER TABLE complaints ADD COLUMN image_url TEXT")
 
     cursor.execute("PRAGMA table_info(issues)")
     i_cols = {row["name"] for row in cursor.fetchall()}
@@ -200,6 +204,8 @@ def init_db():
         cursor.execute("ALTER TABLE issues ADD COLUMN is_anonymous INTEGER DEFAULT 0")
     if "is_private" not in i_cols:
         cursor.execute("ALTER TABLE issues ADD COLUMN is_private INTEGER DEFAULT 0")
+    if "image_url" not in i_cols:
+        cursor.execute("ALTER TABLE issues ADD COLUMN image_url TEXT")
 
     conn.commit()
 

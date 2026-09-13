@@ -9,6 +9,10 @@ let currentDrawerIssueId = null;
 let currentFeedFilter = 'all';
 let allRecipients = [];
 
+// Image Attachment State
+let currentAttachedImage = null;
+let currentAttachedFileName = null;
+
 // Active Authenticated User & Session State (Loaded dynamically via authentication)
 let currentUser = null;
 let currentToken = localStorage.getItem('campuspulse_token') || null;
@@ -63,6 +67,7 @@ function setupEventListeners() {
       closeActionLogModal();
       closeComplaintDrawer();
       closePrivateReplyModal();
+      closeImageModal();
     }
   });
 }
@@ -539,13 +544,94 @@ function triggerFileUpload() {
   if (input) input.click();
 }
 
-function handleFileSelected(event) {
-  const file = event.target.files[0];
-  const label = document.getElementById('uploadLabel');
-  if (file && label) {
-    label.textContent = `Attached: ${file.name}`;
-    label.classList.add('text-brand-700', 'font-bold');
+async function handleFileSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (file.size > 10 * 1024 * 1024) {
+    showQuickToast('Selected image exceeds maximum allowed limit (10MB).', 'warning');
+    return;
   }
+
+  currentAttachedFileName = file.name;
+  const previewContainer = document.getElementById('imagePreviewContainer');
+  const previewThumb = document.getElementById('imagePreviewThumb');
+  const previewName = document.getElementById('imagePreviewName');
+  const previewSize = document.getElementById('imagePreviewSize');
+  const uploadLabel = document.getElementById('uploadLabel');
+
+  // Format file size
+  const sizeKb = (file.size / 1024).toFixed(1);
+  const sizeText = file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : `${sizeKb} KB`;
+
+  // Read data URL for instantaneous local thumbnail display
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    currentAttachedImage = dataUrl;
+    if (previewThumb) previewThumb.src = dataUrl;
+    if (previewName) previewName.textContent = file.name;
+    if (previewSize) previewSize.textContent = `${sizeText} • Ready to upload`;
+    if (previewContainer) previewContainer.classList.remove('hidden');
+    if (uploadLabel) {
+      uploadLabel.textContent = `Attached: ${file.name}`;
+      uploadLabel.classList.add('text-brand-700', 'font-bold');
+    }
+  };
+  reader.readAsDataURL(file);
+
+  // Background upload to static endpoint if available
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+    if (res.ok) {
+      const uploadData = await res.json();
+      if (uploadData && uploadData.url) {
+        currentAttachedImage = uploadData.url;
+      }
+    }
+  } catch (err) {
+    console.warn('Direct upload endpoint fallback to data URL:', err);
+  }
+}
+
+function removeAttachedImage(event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  currentAttachedImage = null;
+  currentAttachedFileName = null;
+  const input = document.getElementById('mediaInput');
+  if (input) input.value = '';
+  const previewContainer = document.getElementById('imagePreviewContainer');
+  if (previewContainer) previewContainer.classList.add('hidden');
+  const uploadLabel = document.getElementById('uploadLabel');
+  if (uploadLabel) {
+    uploadLabel.textContent = 'Add photo of the issue (click to select)';
+    uploadLabel.classList.remove('text-brand-700', 'font-bold');
+  }
+}
+
+function openImageModal(src, title) {
+  if (!src) return;
+  const overlay = document.getElementById('imageModalOverlay');
+  const imgEl = document.getElementById('imageModalFull');
+  const titleEl = document.getElementById('imageModalTitle');
+  const captionEl = document.getElementById('imageModalCaption');
+  if (imgEl) imgEl.src = src;
+  if (titleEl && title) titleEl.textContent = title;
+  if (captionEl) captionEl.textContent = title || 'CampusPulse Photo Evidence';
+  if (overlay) overlay.classList.remove('hidden');
+}
+
+function closeImageModal() {
+  const overlay = document.getElementById('imageModalOverlay');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 // --- Submit Complaint Form (Public / Anonymous / Private) ---
@@ -602,6 +688,7 @@ async function handleFormSubmit(event) {
         showQuickToast(`Confidential message delivered securely to ${recipientName} (${recipientRole.toUpperCase()}).`, 'success');
         textInput.value = '';
         if (subjectInput) subjectInput.value = '';
+        removeAttachedImage();
         if (currentUser && currentUser.role === 'student') {
           switchView('student-history');
           switchStudentHistoryTab('private');
@@ -620,7 +707,9 @@ async function handleFormSubmit(event) {
           location_id: locSelect ? locSelect.value : 'hostel-c-2',
           is_anonymous: isAnon,
           student_id: currentUser ? currentUser.id : null,
-          student_name: currentUser ? currentUser.full_name : 'Verified Student'
+          student_name: currentUser ? currentUser.full_name : 'Verified Student',
+          attachment_url: currentAttachedImage,
+          image_url: currentAttachedImage
         })
       });
 
@@ -633,6 +722,7 @@ async function handleFormSubmit(event) {
         }
 
         textInput.value = '';
+        removeAttachedImage();
         loadStudentFeed();
         loadDashboardKPIs();
         triggerNLPPreview();
@@ -746,6 +836,25 @@ function renderStudentCard(iss) {
     endorsementAction = `<span class="text-xs text-emerald-700 font-semibold self-start sm:self-center">Resolved within SLA</span>`;
   }
 
+  const photoUrl = iss.image_url || iss.attachment_url;
+  const photoEvidenceHtml = photoUrl ? `
+    <div class="mt-2.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <img src="${photoUrl}" alt="Photo Evidence" onclick="openImageModal('${photoUrl}', '${escapeHtml(iss.title)}')" class="w-12 h-12 object-cover rounded-lg border border-slate-300 cursor-pointer hover:opacity-85 hover:scale-105 transition-all shadow-2xs shrink-0" />
+        <div class="flex flex-col text-xs">
+          <span class="font-bold text-slate-800 flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm text-brand-600">image</span>
+            <span>Attached Photo Evidence</span>
+          </span>
+          <span class="text-[10px] text-slate-500">Click thumbnail to expand</span>
+        </div>
+      </div>
+      <button onclick="openImageModal('${photoUrl}', '${escapeHtml(iss.title)}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors shadow-2xs">
+        View Photo
+      </button>
+    </div>
+  ` : '';
+
   return `
     <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col gap-3 transition-all hover:border-slate-300">
       
@@ -769,6 +878,7 @@ function renderStudentCard(iss) {
         <div class="flex flex-col gap-1 max-w-2xl">
           <h3 class="text-base font-bold text-slate-900">${iss.title}</h3>
           <p class="text-xs text-slate-600 leading-relaxed">${iss.description || 'Facility engineers are coordinating resolution.'}</p>
+          ${photoEvidenceHtml}
         </div>
 
         ${endorsementAction}
@@ -874,6 +984,21 @@ async function loadStudentHistory() {
       ticketsContainer.innerHTML = tickets.map(t => {
         const isResolved = t.issue_status === 'RESOLVED' || t.issue_status === 'CLOSED';
         const dateStr = t.reported_at ? formatISTTime(t.reported_at) : 'Recently';
+        const photoUrl = t.complaint_image_url || t.issue_image_url || t.image_url;
+        const photoEvidenceHtml = photoUrl ? `
+          <div class="mt-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2.5">
+              <img src="${photoUrl}" alt="Report Photo" onclick="openImageModal('${photoUrl}', '${escapeHtml(t.issue_title || t.raw_text)}')" class="w-11 h-11 object-cover rounded-lg border border-slate-300 cursor-pointer hover:opacity-85 hover:scale-105 transition-all shadow-2xs shrink-0" />
+              <div class="flex flex-col text-[11px]">
+                <span class="font-bold text-slate-800 flex items-center gap-1"><span class="material-symbols-outlined text-xs text-brand-600">image</span> Photo Evidence Attached</span>
+                <span class="text-slate-500 text-[10px]">Click thumbnail to view full image</span>
+              </div>
+            </div>
+            <button onclick="openImageModal('${photoUrl}', '${escapeHtml(t.issue_title || t.raw_text)}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-700 hover:bg-slate-100 shadow-2xs">
+              View
+            </button>
+          </div>
+        ` : '';
 
         return `
           <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col gap-3">
@@ -897,6 +1022,7 @@ async function loadStudentHistory() {
               <p class="text-xs text-slate-600 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                 "${t.raw_text}"
               </p>
+              ${photoEvidenceHtml}
             </div>
 
             <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1688,19 +1814,35 @@ async function inspectIssueComplaints(issueId) {
       return;
     }
 
-    list.innerHTML = detail.complaints.map(c => `
-      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-        <div class="flex items-center justify-between text-slate-500 mb-1 text-[11px]">
-          <span class="font-bold text-slate-700">${c.id}</span>
-          <span>${c.created_at ? formatISTTime(c.created_at) : 'Recently'}</span>
+    list.innerHTML = detail.complaints.map(c => {
+      const cPhoto = c.image_url || c.attachment_url;
+      const photoHtml = cPhoto ? `
+        <div class="mt-2 p-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <img src="${cPhoto}" alt="Complaint Evidence" onclick="openImageModal('${cPhoto}', 'Evidence #${c.id}')" class="w-9 h-9 object-cover rounded-md border border-slate-300 cursor-pointer hover:opacity-85 shadow-2xs shrink-0" />
+            <span class="text-[11px] font-semibold text-slate-700">Photo Evidence Attached</span>
+          </div>
+          <button onclick="openImageModal('${cPhoto}', 'Evidence #${c.id}')" class="px-2 py-0.5 rounded bg-slate-50 border border-slate-200 text-[10px] font-bold text-brand-700 hover:bg-slate-100">
+            View
+          </button>
         </div>
-        <p class="text-slate-800 font-medium my-1 leading-relaxed">"${c.raw_text}"</p>
-        <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 mt-2">
-          <span>${c.is_anonymous ? 'Submitted anonymously' : 'Verified Student'}</span>
-          <span class="text-emerald-700 font-semibold">&bull; Merged into master ticket</span>
+      ` : '';
+
+      return `
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+          <div class="flex items-center justify-between text-slate-500 mb-1 text-[11px]">
+            <span class="font-bold text-slate-700">${c.id}</span>
+            <span>${c.created_at ? formatISTTime(c.created_at) : 'Recently'}</span>
+          </div>
+          <p class="text-slate-800 font-medium my-1 leading-relaxed">"${c.raw_text}"</p>
+          ${photoHtml}
+          <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 mt-2">
+            <span>${c.is_anonymous ? 'Submitted anonymously' : 'Verified Student'}</span>
+            <span class="text-emerald-700 font-semibold">&bull; Merged into master ticket</span>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } catch (err) {
     console.error('Error inspecting issue complaints:', err);
   }

@@ -279,15 +279,33 @@
             </div>
           </div>
 
-          <!-- Photo Upload -->
+          <!-- Photo Upload & Instant Preview -->
           <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Photo / Attachment (Optional)
+            <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+              <span>Photo / Attachment (Optional)</span>
+              <span id="uploadStatusBadge" class="text-[10px] font-semibold text-slate-400">JPG, PNG, WebP up to 10MB</span>
             </label>
-            <div onclick="triggerFileUpload()" class="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 rounded-xl flex items-center justify-between text-xs text-slate-600 cursor-pointer transition-colors">
-              <span id="uploadLabel" class="truncate">Add photo of the issue</span>
-              <span class="material-symbols-outlined text-slate-400">add_photo_alternate</span>
+            <div id="uploadDropzone" onclick="triggerFileUpload()" class="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 rounded-xl flex items-center justify-between text-xs text-slate-600 cursor-pointer transition-colors group">
+              <div class="flex items-center gap-2 truncate">
+                <span class="material-symbols-outlined text-slate-400 group-hover:text-brand-600 text-base transition-colors">add_photo_alternate</span>
+                <span id="uploadLabel" class="truncate font-medium">Add photo of the issue (click to select)</span>
+              </div>
+              <span class="text-[11px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-100 shrink-0">Browse</span>
               <input type="file" id="mediaInput" class="hidden" accept="image/*" onchange="handleFileSelected(event)"/>
+            </div>
+
+            <!-- Instant Image Preview Strip -->
+            <div id="imagePreviewContainer" class="hidden mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 truncate">
+                <img id="imagePreviewThumb" src="" alt="Selected Evidence Preview" onclick="openImageModal(this.src, 'Photo Evidence Preview')" class="w-12 h-12 object-cover rounded-lg border border-slate-300 cursor-pointer hover:opacity-80 transition-opacity shrink-0 shadow-2xs" />
+                <div class="flex flex-col truncate">
+                  <span id="imagePreviewName" class="text-xs font-bold text-slate-800 truncate">image.jpg</span>
+                  <span id="imagePreviewSize" class="text-[10px] text-slate-500">Click thumbnail to view full size</span>
+                </div>
+              </div>
+              <button type="button" onclick="removeAttachedImage(event)" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0" title="Remove photo">
+                <span class="material-symbols-outlined text-base">delete</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1100,6 +1118,35 @@
         <button onclick="submitPrivateReply()" id="btnSubmitPrivateReply" class="px-5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5">
           <span>Send Response</span>
           <span class="material-symbols-outlined text-sm">send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 5: PHOTO EVIDENCE LIGHTBOX / ZOOM VIEWER -->
+  <!-- ========================================================================= -->
+  <div id="imageModalOverlay" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4" onclick="closeImageModal()">
+    <div class="bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-700 w-full max-w-2xl overflow-hidden fade-in relative" onclick="event.stopPropagation()">
+      <!-- Header -->
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-brand-400 text-lg">image</span>
+          <h3 id="imageModalTitle" class="text-xs font-bold text-slate-200">Attached Incident Photo</h3>
+        </div>
+        <button onclick="closeImageModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+      <!-- Image Body -->
+      <div class="p-4 bg-slate-950 flex items-center justify-center min-h-[260px] max-h-[70vh] overflow-hidden">
+        <img id="imageModalFull" src="" alt="Full Incident Photo" class="max-w-full max-h-[65vh] object-contain rounded-xl shadow-lg border border-slate-800" />
+      </div>
+      <!-- Footer -->
+      <div class="px-5 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <span id="imageModalCaption">CampusPulse Photo Evidence</span>
+        <button onclick="closeImageModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-colors">
+          Close
         </button>
       </div>
     </div>

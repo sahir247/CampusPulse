@@ -171,6 +171,9 @@ def submit_complaint(payload: ComplaintCreate):
     assigned_issue_id = None
     case_id_display = None
 
+    # Extract photo / attachment URL if provided
+    img_url = payload.attachment_url or payload.image_url
+
     # DEDUPLICATION THRESHOLD: Empirical calibrated threshold (default 0.65)
     threshold = getattr(ai_engine, "calibrated_threshold", 0.65)
     if best_match and highest_similarity >= threshold:
@@ -197,6 +200,13 @@ def submit_complaint(payload: ComplaintCreate):
                 updated_at = ?
             WHERE id = ?
         """, (new_complaint_count, new_score, new_level, new_explanation, now_iso, assigned_issue_id))
+
+        if img_url:
+            cursor.execute("""
+                UPDATE issues
+                SET image_url = ?
+                WHERE id = ? AND (image_url IS NULL OR image_url = '')
+            """, (img_url, assigned_issue_id))
 
         # Add timeline entry
         cursor.execute("""
@@ -266,8 +276,8 @@ def submit_complaint(payload: ComplaintCreate):
                 priority_score, priority_level, complaint_count, upvote_count,
                 assigned_team_id, status, jira_issue_id, jira_url, slack_alert_sent,
                 ai_explanation, hotspot_index, created_at, updated_at,
-                creator_name, creator_id, is_anonymous, is_private
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                creator_name, creator_id, is_anonymous, is_private, image_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             assigned_issue_id,
             case_id_display,
@@ -292,7 +302,8 @@ def submit_complaint(payload: ComplaintCreate):
             creator_display_name,
             creator_user_id,
             1 if payload.is_anonymous else 0,
-            1 if payload.is_private else 0
+            1 if payload.is_private else 0,
+            img_url
         ))
 
         cursor.execute("""
@@ -311,8 +322,8 @@ def submit_complaint(payload: ComplaintCreate):
         INSERT INTO complaints (
             id, user_id, student_name, student_id, raw_text, normalized_text, embedding_json,
             category, category_confidence, urgency, location_id, source, status,
-            is_anonymous, is_private, recipient_id, recipient_role, issue_id, similarity_score, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            is_anonymous, is_private, recipient_id, recipient_role, issue_id, similarity_score, image_url, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         complaint_id,
         creator_user_id if not payload.is_anonymous else None,
@@ -333,6 +344,7 @@ def submit_complaint(payload: ComplaintCreate):
         payload.recipient_role,
         assigned_issue_id,
         highest_similarity if merged else 1.0,
+        img_url,
         now_iso
     ))
 
@@ -362,6 +374,7 @@ def submit_complaint(payload: ComplaintCreate):
         "category": category,
         "urgency": urgency,
         "similarity_score": highest_similarity if merged else 1.0,
+        "image_url": img_url,
         "message": f"Complaint successfully processed. Consolidated under {case_id_display}."
     }
 
@@ -405,6 +418,8 @@ def list_complaints(issue_id: Optional[str] = None, category: Optional[str] = No
             is_anonymous=bool(r["is_anonymous"]),
             issue_id=r["issue_id"],
             similarity_score=r["similarity_score"],
+            image_url=r["image_url"] if "image_url" in r.keys() else None,
+            attachment_url=r["image_url"] if "image_url" in r.keys() else None,
             created_at=r["created_at"]
         )
         for r in rows

@@ -37,6 +37,7 @@ class ComplaintCreate(BaseModel):
     student_name: Optional[str] = None
     student_dept: Optional[str] = None
     attachment_url: Optional[str] = None
+    image_url: Optional[str] = None
 
 class ComplaintPreviewRequest(BaseModel):
     text: str
@@ -68,6 +69,8 @@ class ComplaintItem(BaseModel):
     student_name: Optional[str] = None
     issue_id: Optional[str] = None
     similarity_score: Optional[float] = None
+    image_url: Optional[str] = None
+    attachment_url: Optional[str] = None
     created_at: str
 
 class IssueItem(BaseModel):
@@ -99,6 +102,8 @@ class IssueItem(BaseModel):
     is_anonymous: bool = False
     is_private: bool = False
     has_voted: bool = False
+    image_url: Optional[str] = None
+    attachment_url: Optional[str] = None
 
 class UserRole(str, Enum):
     STUDENT = "student"
