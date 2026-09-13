@@ -1,7 +1,7 @@
 from backend.database import init_db, get_connection
 from backend.routers.demo import seed_demo_data
 from backend.routers.complaints import preview_complaint_nlp, submit_complaint
-from backend.models import ComplaintPreviewRequest, ComplaintCreate
+from backend.models import ComplaintPreviewRequest, ComplaintCreate, UpvoteRequest
 from backend.routers.issues import list_issues, get_issue_detail, upvote_issue
 from backend.routers.dashboard import get_dashboard_summary, get_hotspots
 
@@ -45,8 +45,9 @@ def run_tests():
     assert detail.complaint_count >= 38
 
     print("\n6. Testing Upvoting...")
-    upvote_res = upvote_issue(detail.id)
-    print(f"Upvote Result: new_upvotes={upvote_res.upvote_count}, new_score={upvote_res.new_priority_score}")
+    upvote_res = upvote_issue(detail.id, UpvoteRequest(user_id="std-rohit", username="student_rohit", user_role="student"))
+    print(f"Upvote Result: success={upvote_res.success}, new_upvotes={upvote_res.upvote_count}, new_score={upvote_res.new_priority_score}")
+    assert upvote_res.success is True
 
     print("\n7. Testing Hotspots calculation...")
     hotspots = get_hotspots()

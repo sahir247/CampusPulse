@@ -132,9 +132,17 @@ class CampusPulseAIEngine:
                     self.classifier_bundle = joblib.load(classifier_path)
                     print(f"[AI Engine] Supervised category classifier loaded successfully from {classifier_path}.")
             except Exception as e:
-                print(f"[AI Engine] Deep learning initialization warning: {e}. Falling back to heuristic mode.")
-                self.embedder = None
-                self.classifier_bundle = None
+                print(f"[AI Engine] Initialization warning on {self.device}: {e}. Retrying on CPU...")
+                try:
+                    self.device = "cpu"
+                    self.embedder = SentenceTransformer(self.model_name, device="cpu")
+                    if os.path.exists(classifier_path):
+                        self.classifier_bundle = joblib.load(classifier_path)
+                    print(f"[AI Engine] Multilingual MPNet embedder loaded successfully on CPU.")
+                except Exception as e2:
+                    print(f"[AI Engine] Deep learning fallback to heuristic mode: {e2}")
+                    self.embedder = None
+                    self.classifier_bundle = None
 
     def preprocess(self, text: str) -> str:
         """Clean and normalize student text while preserving Hindi & Bengali Unicode characters."""
@@ -235,12 +243,12 @@ class CampusPulseAIEngine:
             # Dot product of L2-normalized vectors is cosine similarity
             raw_sim = float(np.dot(v1, v2))
         else:
-            # Fallback character n-gram jaccard
-            q_words = set(cleaned_query.lower().split())
-            c_words = set(cleaned_candidate.lower().split())
+            # Fallback keyword overlap without stopwords
+            q_words = set(re.findall(r'\w+', cleaned_query.lower())) - self.stopwords
+            c_words = set(re.findall(r'\w+', cleaned_candidate.lower())) - self.stopwords
             intersection = len(q_words & c_words)
             union = len(q_words | c_words) or 1
-            raw_sim = intersection / union
+            raw_sim = (intersection / union) * 1.3
 
         sim = raw_sim
 

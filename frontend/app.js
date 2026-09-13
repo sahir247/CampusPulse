@@ -814,7 +814,10 @@ async function upvoteIssue(issueId, event) {
   try {
     const res = await fetch(`/api/issues/${issueId}/upvote`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {})
+      },
       body: JSON.stringify({
         user_id: currentUser.id,
         username: currentUser.username,
@@ -824,7 +827,7 @@ async function upvoteIssue(issueId, event) {
 
     const data = await res.json();
 
-    if (res.ok && data.success) {
+    if (res.ok && (data.success || data.upvote_count !== undefined)) {
       const pLevel = data.new_priority_level || data.priority_level || 'ELEVATED';
       showQuickToast(`Added your endorsement! Urgency: ${pLevel} (Score: ${data.new_priority_score}).`, 'success');
       loadStudentFeed();

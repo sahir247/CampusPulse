@@ -14,7 +14,7 @@ def test_full_system():
     print(f"GET / (Frontend index.html): {r.status_code}, length={len(r.text)}")
     assert r.status_code == 200
     assert "CampusPulse" in r.text
-    assert "Incident Log" in r.text
+    assert "Report a Campus Issue" in r.text
 
     r_js = requests.get(f"{BASE_URL}/app.js")
     print(f"GET /app.js: {r_js.status_code}, length={len(r_js.text)}")
@@ -53,7 +53,11 @@ def test_full_system():
     assert sub_data["case_id"] == "ISSUE-2026-00421"
 
     # 5. Test Upvoting
-    r_upvote = requests.post(f"{BASE_URL}/api/issues/issue-421/upvote")
+    r_upvote = requests.post(f"{BASE_URL}/api/issues/issue-421/upvote", json={
+        "user_id": "std-rohit",
+        "username": "student_rohit",
+        "user_role": "student"
+    })
     print(f"POST /api/issues/issue-421/upvote: {r_upvote.status_code}, data={r_upvote.json()}")
     assert r_upvote.status_code == 200
 
@@ -103,7 +107,12 @@ def test_full_system():
     assert r_verify.json()["status"] == "RESOLVED"
 
     # Reset back to IN_PROGRESS for pristine demo state
-    requests.patch(f"{BASE_URL}/api/issues/issue-421/status", json={"status": "IN_PROGRESS", "note": "Re-opened for demo"})
+    requests.patch(f"{BASE_URL}/api/issues/issue-421/status", json={
+        "status": "IN_PROGRESS",
+        "note": "Re-opened for demo",
+        "changed_by": "Prof. Rajesh Sharma",
+        "changed_by_role": "faculty"
+    })
 
     print("\nALL HTTP ENDPOINTS AND STATIC ASSETS VERIFIED 100% OPERATIONAL! [OK]")
 

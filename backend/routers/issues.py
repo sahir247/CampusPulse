@@ -568,6 +568,7 @@ def upvote_issue(id: str, req: Optional[UpvoteRequest] = None):
     conn.close()
 
     return UpvoteResponse(
+        success=True,
         issue_id=issue["id"],
         case_id=issue["case_id"],
         upvote_count=new_upvotes,

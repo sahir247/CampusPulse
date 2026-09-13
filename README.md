@@ -170,19 +170,21 @@ Navigate to **`http://127.0.0.1:8000/`** in any modern web browser.
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/login` | Authenticate user and receive JWT session token | Public |
-| `POST` | `/api/auth/logout` | Terminate session | Authenticated |
 | `GET` | `/api/auth/me` | Fetch active user profile and permissions | Authenticated |
+| `GET` | `/api/auth/demo-users` | List demo accounts for quick role-switching | Public |
 | `POST` | `/api/complaints/preview` | Real-time AI categorization and duplicate check | Student |
 | `POST` | `/api/complaints` | Submit public, anonymous, or private complaint | Student |
-| `GET` | `/api/issues/active` | Get open/active campus issues (filtered) | All Roles |
-| `GET` | `/api/issues/resolved` | Get historical archive of resolved issues | All Roles |
+| `GET` | `/api/issues` | Get active/filtered campus issues (`?active_only=true`) | All Roles |
+| `GET` | `/api/issues/archive/resolved` | Get historical archive of resolved issues | All Roles |
+| `GET` | `/api/issues/user/my-tickets` | Fetch logged-in student's reported tickets | Student |
 | `POST` | `/api/issues/{id}/upvote` | Endorse issue with "I have this issue too" | Student Only |
-| `PATCH`| `/api/issues/{id}/status` | Update ticket status with optional comment | Faculty, HOD, Mgmt, Staff |
+| `PATCH`| `/api/issues/{id}/status` | Update ticket status with comment (RBAC guarded) | Faculty, HOD, Mgmt, Staff |
 | `GET` | `/api/issues/{id}/timeline`| Retrieve action log audit history | All Roles |
-| `GET` | `/api/messages/private` | Fetch leadership confidential inbox | HOD, Management |
-| `POST` | `/api/messages/{id}/reply`| Send confidential reply to student inquiry | HOD, Management |
+| `GET` | `/api/messages/inbox` | Fetch leadership confidential inbox | HOD, Management |
+| `PATCH`| `/api/messages/{id}/reply`| Send confidential reply to student inquiry | HOD, Management |
 | `GET` | `/api/recipients` | Directory of campus leadership recipients | All Roles |
-| `GET` | `/api/analytics/kpis` | Operational metrics (active, resolved, SLA) | Faculty, HOD, Mgmt |
+| `GET` | `/api/dashboard/summary` | Operational metrics (active, resolved, SLA) | All Roles |
+| `GET` | `/api/dashboard/hotspots`| Campus geographical problem hotspot rankings | All Roles |
 
 ---
 

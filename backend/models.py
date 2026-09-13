@@ -205,6 +205,7 @@ class FeedbackCreate(BaseModel):
     corrected_by: Optional[str] = None
 
 class UpvoteResponse(BaseModel):
+    success: bool = True
     issue_id: str
     case_id: str
     upvote_count: int

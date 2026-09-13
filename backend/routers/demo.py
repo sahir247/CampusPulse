@@ -17,12 +17,14 @@ def seed_demo_data():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Clear existing dynamic tables
+    # Clear existing dynamic tables (delete child tables before parent issues table)
     cursor.execute("DELETE FROM complaints")
     cursor.execute("DELETE FROM issue_timeline")
-    cursor.execute("DELETE FROM issues")
+    cursor.execute("DELETE FROM issue_upvotes")
     cursor.execute("DELETE FROM feedback")
     cursor.execute("DELETE FROM audit_logs")
+    cursor.execute("DELETE FROM private_messages")
+    cursor.execute("DELETE FROM issues")
 
     now = datetime.utcnow()
 
