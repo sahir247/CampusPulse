@@ -732,13 +732,18 @@ async function handleFormSubmit(event) {
 
         textInput.value = '';
         removeAttachedImage();
-        loadStudentFeed();
-        loadDashboardKPIs();
-        triggerNLPPreview();
-
-        if (currentUser.role === 'student') {
-          switchView('student-history');
-          switchStudentHistoryTab('tickets');
+        if (workspaceMode === 'civic') {
+          loadCivicDashboard();
+          const civicView = document.getElementById('civicWorkspace');
+          if (civicView) civicView.scrollIntoView({behavior:'smooth',block:'start'});
+        } else {
+          loadStudentFeed();
+          loadDashboardKPIs();
+          triggerNLPPreview();
+          if (currentUser?.role === 'student') {
+            switchView('student-history');
+            switchStudentHistoryTab('tickets');
+          }
         }
       } else {
         showQuickToast(result.detail || 'Submission failed.', 'error');
