@@ -3,6 +3,9 @@
 // Single-Vote Endorsements, Confidential Leadership Routing & Historical Archive
 
 let currentView = 'student-report';
+let workspaceMode = 'campus';
+let civicIssues = [];
+
 let currentSubmissionMode = 'public'; // 'public' | 'anonymous' | 'private'
 let currentStudentHistoryTab = 'tickets'; // 'tickets' | 'private'
 let currentDrawerIssueId = null;
@@ -1994,8 +1997,6 @@ function formatISTTime(dateStr, includeSeconds = false) {
 // =============================================================================
 // CIVIC WORKSPACE (Panchayat / Municipality / Municipal Corporation)
 // =============================================================================
-let workspaceMode = 'campus';
-let civicIssues = [];
 const CIVIC_CATEGORY_BY_LABEL = {
   'Water supply': 'Water',
   'Roads & streetlights': 'Facilities',
