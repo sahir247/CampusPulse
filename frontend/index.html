@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-  <title>CampusPulse — Campus Issue Reporting & Resolution</title>
+  <title>JanPulse — Panchayat & Municipality Issue Resolution</title>
   
   <!-- Fonts: Inter & Material Symbols -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -27,6 +27,22 @@
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
+  
+    :root{--civic-forest:#14532d;--civic-border:#dbe4da;--civic-paper:#f6f8f4}
+    body.civic-mode{background:var(--civic-paper);color:#17251c}
+    #civicWorkspace{display:none} body.civic-mode #civicWorkspace{display:block} body.civic-mode #campusWorkspace{display:none!important}
+    body.civic-mode .tab-active{background:var(--civic-forest)!important}
+    .civic-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .civic-stat,.civic-surface{background:#fff;border:1px solid var(--civic-border);border-radius:16px}
+    .civic-stat{padding:18px;min-width:0}.civic-stat .value{font-size:clamp(1.5rem,3vw,2.1rem);font-weight:800;letter-spacing:-.04em;color:var(--civic-forest)}
+    .civic-stat .label{font-size:12px;font-weight:700;color:#647466;margin-top:7px}
+    .civic-section-title{font-weight:800;letter-spacing:-.025em;color:#17251c}
+    .civic-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#ecfdf3;color:#166534;font-size:11px;font-weight:700}
+    .civic-action{min-height:44px;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700}
+    .civic-action-primary{background:var(--civic-forest);color:white}
+    .civic-issue-row{border-bottom:1px solid #edf1eb;padding:15px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    @media(max-width:760px){.civic-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.civic-stat{padding:13px}}
+
   </style>
 
   <!-- Tailwind CSS CDN -->
@@ -60,15 +76,15 @@
       <!-- Brand & View Switcher -->
       <div class="flex items-center gap-4 sm:gap-6">
         <div class="flex items-center gap-2.5 cursor-pointer" onclick="switchView('student')">
-          <div class="w-9 h-9 rounded-xl bg-brand-700 flex items-center justify-center text-white shadow-sm font-black text-sm tracking-wide">
-            CP
-          </div>
-          <div class="flex flex-col">
-            <span class="text-base font-bold text-slate-900 leading-tight">CampusPulse</span>
-            <span class="text-[11px] text-slate-500 font-medium">Issue Resolution Portal</span>
+          <div id="brandMark" class="w-9 h-9 rounded-xl bg-brand-700 flex items-center justify-center text-white shadow-sm font-black text-sm tracking-wide">CP</div>
+          <div class="flex flex-col"><span id="brandName" class="text-base font-bold text-slate-900 leading-tight">CampusPulse</span><span id="brandSubtitle" class="text-[11px] text-slate-500 font-medium">Issue Resolution Portal</span>
           </div>
         </div>
 
+        <div class="hidden lg:flex items-center gap-1 rounded-xl border border-slate-200 p-1 bg-white" aria-label="Workspace">
+          <button id="workspaceCampusBtn" onclick="setWorkspaceMode('campus')" class="px-3 py-1.5 rounded-lg text-xs font-bold">Campus</button>
+          <button id="workspaceCivicBtn" onclick="setWorkspaceMode('civic')" class="px-3 py-1.5 rounded-lg text-xs font-bold">Panchayat / ULB</button>
+        </div>
         <!-- Role View Switcher (Dynamic Tabs Per Role - No 'Restricted' anti-pattern) -->
         <div id="roleNavTabs" class="flex items-center p-1 bg-slate-100 rounded-xl gap-1">
           <!-- Populated dynamically per role via updateUserNavUI() -->
@@ -131,9 +147,61 @@
     </div>
   </header>
 
+
+  <main id="civicWorkspace" class="w-full flex-1">
+    <section class="bg-white border-b border-emerald-100">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-7 pb-6">
+        <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+          <div class="max-w-2xl">
+            <div class="flex items-center gap-2 mb-3"><span class="civic-chip"><span class="material-symbols-outlined text-sm">account_balance</span> Local services · Public accountability</span><span class="text-[11px] text-slate-500 font-semibold">PROTOTYPE</span></div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Your place. Your voice.<br/><span style="color:#166534">Visible action.</span></h1>
+            <p class="text-sm sm:text-base text-slate-600 mt-3 max-w-xl">Report a local issue, follow its progress, and see how your panchayat or municipality is responding.</p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2"><button onclick="openCivicReport()" class="civic-action civic-action-primary inline-flex items-center justify-center gap-2"><span class="material-symbols-outlined text-lg">add_a_photo</span> Report a local issue</button><button onclick="document.getElementById('civicIssuesPanel').scrollIntoView({behavior:'smooth'})" class="civic-action border border-slate-300 bg-white text-slate-700 inline-flex items-center justify-center gap-2"><span class="material-symbols-outlined text-lg">track_changes</span> Track issues</button></div>
+        </div>
+        <div id="civicLocationBar" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-7">
+          <label class="text-xs font-bold text-slate-600">District<select id="civicDistrict" class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold"><option>Nadia</option><option>North 24 Parganas</option><option>Hooghly</option><option>Kolkata</option><option>Other district</option></select></label>
+          <label class="text-xs font-bold text-slate-600">Local government type<select id="civicBodyType" onchange="updateCivicBodyOptions()" class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold"><option value="panchayat">Gram Panchayat</option><option value="municipality">Municipality</option><option value="corporation">Municipal Corporation</option></select></label>
+          <label class="text-xs font-bold text-slate-600"><span id="civicBodyLabel">Gram Panchayat</span><select id="civicBodyName" class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold"><option>Choose local body</option><option>Demo Gram Panchayat</option><option>Not listed</option></select></label>
+          <label class="text-xs font-bold text-slate-600"><span id="civicWardLabel">Village / Sansad</span><input id="civicWard" class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold" placeholder="Village / ward / locality"/></label>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-3 flex gap-1.5 items-start"><span class="material-symbols-outlined text-sm">info</span>Location choices are placeholders. Real rollout must load authoritative local-body, ward and village data; this prototype is not an official government portal.</p>
+      </div>
+    </section>
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="civic-grid">
+        <div class="civic-stat"><div class="flex items-center justify-between"><span class="label !mt-0">OPEN ISSUES</span><span class="material-symbols-outlined text-emerald-700">assignment_late</span></div><div class="value" id="civicOpenCount">—</div><div class="text-xs text-slate-500 mt-2">Awaiting action or underway</div></div>
+        <div class="civic-stat"><div class="flex items-center justify-between"><span class="label !mt-0">RESOLVED</span><span class="material-symbols-outlined text-emerald-700">task_alt</span></div><div class="value" id="civicResolvedCount">—</div><div class="text-xs text-slate-500 mt-2">Closed with an outcome</div></div>
+        <div class="civic-stat"><div class="flex items-center justify-between"><span class="label !mt-0">NEEDS ATTENTION</span><span class="material-symbols-outlined text-amber-600">priority_high</span></div><div class="value" id="civicUrgentCount">—</div><div class="text-xs text-slate-500 mt-2">High-priority cases</div></div>
+        <div class="civic-stat"><div class="flex items-center justify-between"><span class="label !mt-0">PUBLIC REPORTS</span><span class="material-symbols-outlined text-emerald-700">forum</span></div><div class="value" id="civicReportCount">—</div><div class="text-xs text-slate-500 mt-2">Reports consolidated by issue</div></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
+        <section class="civic-surface p-5 lg:col-span-2"><div class="flex items-start justify-between gap-3"><div><h2 class="civic-section-title text-lg">What needs attention?</h2><p class="text-xs text-slate-500 mt-1">Choose a service to report a problem in your area.</p></div><span class="material-symbols-outlined text-emerald-700 text-2xl">location_city</span></div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
+            <button onclick="selectCivicCategory('Water supply')" class="text-left rounded-xl border border-slate-200 p-3.5 hover:border-emerald-400 hover:bg-emerald-50/40"><span class="material-symbols-outlined text-emerald-700">water_drop</span><div class="font-bold text-sm mt-2">Water supply</div><div class="text-[11px] text-slate-500 mt-1">Pipes, taps, drainage</div></button>
+            <button onclick="selectCivicCategory('Roads & streetlights')" class="text-left rounded-xl border border-slate-200 p-3.5 hover:border-emerald-400 hover:bg-emerald-50/40"><span class="material-symbols-outlined text-emerald-700">route</span><div class="font-bold text-sm mt-2">Roads & lights</div><div class="text-[11px] text-slate-500 mt-1">Potholes, lighting</div></button>
+            <button onclick="selectCivicCategory('Sanitation & waste')" class="text-left rounded-xl border border-slate-200 p-3.5 hover:border-emerald-400 hover:bg-emerald-50/40"><span class="material-symbols-outlined text-emerald-700">delete_sweep</span><div class="font-bold text-sm mt-2">Sanitation</div><div class="text-[11px] text-slate-500 mt-1">Waste, drains, toilets</div></button>
+            <button onclick="selectCivicCategory('Public health')" class="text-left rounded-xl border border-slate-200 p-3.5 hover:border-emerald-400 hover:bg-emerald-50/40"><span class="material-symbols-outlined text-emerald-700">health_and_safety</span><div class="font-bold text-sm mt-2">Public health</div><div class="text-[11px] text-slate-500 mt-1">Mosquitoes, hazards</div></button>
+            <button onclick="selectCivicCategory('Public facilities')" class="text-left rounded-xl border border-slate-200 p-3.5 hover:border-emerald-400 hover:bg-emerald-50/40"><span class="material-symbols-outlined text-emerald-700">park</span><div class="font-bold text-sm mt-2">Public facilities</div><div class="text-[11px] text-slate-500 mt-1">Parks, markets, wells</div></button>
+            <button onclick="selectCivicCategory('Welfare & certificates')" class="text-left rounded-xl border border-slate-200 p-3.5 hover:border-emerald-400 hover:bg-emerald-50/40"><span class="material-symbols-outlined text-emerald-700">description</span><div class="font-bold text-sm mt-2">Civic services</div><div class="text-[11px] text-slate-500 mt-1">Local service requests</div></button>
+          </div>
+          <div class="mt-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 flex items-start gap-3"><span class="material-symbols-outlined text-emerald-800">shield_person</span><div><div class="font-bold text-sm text-emerald-950">Your report, your choice</div><p class="text-xs text-emerald-900/80 mt-1">Choose named or anonymous reporting. Do not include sensitive personal information.</p></div></div>
+        </section>
+        <aside class="civic-surface p-5"><h2 class="civic-section-title text-lg">How resolution works</h2><p class="text-xs text-slate-500 mt-1">A clear path from report to action.</p><div class="mt-5 space-y-4">
+          <div class="flex gap-3"><div class="w-8 h-8 flex-shrink-0 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs">1</div><div><div class="font-bold text-sm">Report</div><p class="text-xs text-slate-500 mt-1">Describe the issue, place and add a photo if useful.</p></div></div>
+          <div class="flex gap-3"><div class="w-8 h-8 flex-shrink-0 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs">2</div><div><div class="font-bold text-sm">Assigned</div><p class="text-xs text-slate-500 mt-1">The responsible team reviews and updates the case.</p></div></div>
+          <div class="flex gap-3"><div class="w-8 h-8 flex-shrink-0 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs">3</div><div><div class="font-bold text-sm">Verified outcome</div><p class="text-xs text-slate-500 mt-1">Resolution details stay visible in the issue history.</p></div></div>
+        </div><div class="border-t border-slate-100 mt-5 pt-4"><div class="flex justify-between items-center"><span class="text-xs font-bold text-slate-600">Public service promise</span><span class="civic-chip">Trackable</span></div><p class="text-xs text-slate-500 mt-2">Show status, responsible office and last update; do not present demo targets as official SLAs.</p></div></aside>
+      </div>
+      <section id="civicIssuesPanel" class="civic-surface p-5 mt-5"><div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3"><div><h2 class="civic-section-title text-lg">Local issue tracker</h2><p class="text-xs text-slate-500 mt-1">Connected issue feed. Existing demo data may still contain campus examples.</p></div><div class="flex gap-2"><select id="civicStatusFilter" onchange="renderCivicIssues()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold"><option value="all">All statuses</option><option value="active">Open / in progress</option><option value="resolved">Resolved</option></select><button onclick="loadCivicDashboard()" class="civic-action border border-slate-300 bg-white text-slate-700 inline-flex items-center gap-1"><span class="material-symbols-outlined text-base">refresh</span> Refresh</button></div></div><div id="civicIssuesList" class="mt-4"><div class="text-sm text-slate-500 py-6 text-center">Loading issue feed…</div></div></section>
+      <footer class="mt-6 pb-5 flex flex-col sm:flex-row justify-between gap-2 text-[11px] text-slate-500"><span>JanPulse civic workspace prototype · Not an official government portal</span><span>Mobile-first · Multilingual-ready</span></footer>
+    </section>
+  </main>
+
   <!-- Notification Toast Container -->
   <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
+  <div id="campusWorkspace" class="w-full flex-1">
   <!-- ========================================================================= -->
   <!-- 1. STUDENT VIEW: REPORT ISSUE (PUBLIC / ANONYMOUS / PRIVATE) -->
   <!-- ========================================================================= -->
@@ -1150,6 +1218,8 @@
         </button>
       </div>
     </div>
+  </div>
+
   </div>
 
   <!-- Main JavaScript Controller -->

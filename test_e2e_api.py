@@ -13,7 +13,8 @@ def test_full_system():
     r = requests.get(f"{BASE_URL}/")
     print(f"GET / (Frontend index.html): {r.status_code}, length={len(r.text)}")
     assert r.status_code == 200
-    assert "CampusPulse" in r.text
+    assert "CampusPulse" in r.text or "JanPulse" in r.text
+    assert "civicWorkspace" in r.text
     assert "Report a Campus Issue" in r.text
 
     r_js = requests.get(f"{BASE_URL}/app.js")
