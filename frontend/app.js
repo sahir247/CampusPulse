@@ -743,7 +743,7 @@ async function handleFormSubmit(event) {
           loadStudentFeed();
           loadDashboardKPIs();
           triggerNLPPreview();
-          if (workspaceMode === 'campus' && currentUser?.role === 'student') {
+          if (currentUser?.role === 'student') {
             switchView('student-history');
             switchStudentHistoryTab('tickets');
           }
