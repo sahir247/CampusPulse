@@ -711,7 +711,9 @@ async function handleFormSubmit(event) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           raw_text: text,
-          location_id: locSelect ? locSelect.value : 'hostel-c-2',
+          // Civic jurisdiction IDs do not exist in the current backend schema. Keep this field null
+          // for civic submissions rather than silently filing the report against a campus building.
+          location_id: workspaceMode === 'civic' ? null : (locSelect ? locSelect.value : 'hostel-c-2'),
           is_anonymous: isAnon,
           student_id: currentUser ? currentUser.id : null,
           student_name: currentUser ? currentUser.full_name : 'Verified Student',
