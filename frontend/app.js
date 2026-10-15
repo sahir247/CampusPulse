@@ -1976,3 +1976,149 @@ function formatISTTime(dateStr, includeSeconds = false) {
   }
 }
 
+
+// =============================================================================
+// CIVIC WORKSPACE (Panchayat / Municipality / Municipal Corporation)
+// =============================================================================
+let workspaceMode = 'campus';
+let civicIssues = [];
+const CIVIC_CATEGORY_BY_LABEL = {
+  'Water supply': 'Water',
+  'Roads & streetlights': 'Facilities',
+  'Sanitation & waste': 'Sanitation',
+  'Public health': 'Health',
+  'Public facilities': 'Facilities',
+  'Welfare & certificates': 'General'
+};
+
+function setWorkspaceMode(mode) {
+  workspaceMode = mode === 'civic' ? 'civic' : 'campus';
+  document.body.classList.toggle('civic-mode', workspaceMode === 'civic');
+  const campusBtn = document.getElementById('workspaceCampusBtn');
+  const civicBtn = document.getElementById('workspaceCivicBtn');
+  if (campusBtn) campusBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold ' + (workspaceMode === 'campus' ? 'bg-slate-100 text-slate-900' : 'text-slate-500');
+  if (civicBtn) civicBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold ' + (workspaceMode === 'civic' ? 'bg-emerald-100 text-emerald-900' : 'text-slate-500');
+  const name = document.getElementById('brandName');
+  const subtitle = document.getElementById('brandSubtitle');
+  const mark = document.getElementById('brandMark');
+  if (name) name.textContent = workspaceMode === 'civic' ? 'JanPulse' : 'CampusPulse';
+  if (subtitle) subtitle.textContent = workspaceMode === 'civic' ? 'Panchayat & Municipality Services' : 'Issue Resolution Portal';
+  if (mark) {
+    mark.textContent = workspaceMode === 'civic' ? 'JP' : 'CP';
+    mark.className = 'w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-sm font-black text-sm tracking-wide ' + (workspaceMode === 'civic' ? 'bg-emerald-800' : 'bg-brand-700');
+  }
+  if (workspaceMode === 'civic') loadCivicDashboard();
+}
+
+function updateCivicBodyOptions() {
+  const type = document.getElementById('civicBodyType')?.value || 'panchayat';
+  const label = document.getElementById('civicBodyLabel');
+  const wardLabel = document.getElementById('civicWardLabel');
+  const bodySelect = document.getElementById('civicBodyName');
+  const labels = {panchayat:['Gram Panchayat','Village / Sansad'], municipality:['Municipality','Ward'], corporation:['Municipal Corporation','Ward']};
+  const choice = labels[type] || labels.panchayat;
+  if (label) label.textContent = choice[0];
+  if (wardLabel) wardLabel.textContent = choice[1];
+  if (bodySelect) bodySelect.innerHTML = '<option value="">Choose local body</option><option value="demo">Demo ' + choice[0] + '</option><option value="other">Not listed</option>';
+}
+
+function selectCivicCategory(label) {
+  const description = document.getElementById('incidentText');
+  const location = document.getElementById('locationSelect');
+  const reportView = document.getElementById('viewStudentReport');
+  if (description) {
+    const existing = description.value.trim();
+    if (!existing || existing === 'No water in Block C since morning, washrooms unusable on floor 2.') {
+      description.value = label + ': ';
+    } else if (!existing.toLowerCase().startsWith(label.toLowerCase())) {
+      description.value = label + ': ' + existing;
+    }
+  }
+  if (location) location.value = 'science-quad';
+  openCivicReport();
+  if (description) { description.focus(); description.scrollIntoView({behavior:'smooth',block:'center'}); }
+  showQuickToast('Category selected. Add the local details before submitting.', 'info');
+}
+
+function openCivicReport() {
+  // Existing report form and complaint API are reused without pretending the demo schema is civic-ready.
+  if (workspaceMode !== 'civic') setWorkspaceMode('civic');
+  const campus = document.getElementById('campusWorkspace');
+  if (campus) campus.style.display = 'block';
+  const view = document.getElementById('viewStudentReport');
+  if (view) {
+    view.classList.remove('hidden');
+    view.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  const heading = view?.querySelector('h1');
+  if (heading) heading.textContent = 'Report a local issue';
+  const descriptionLabel = document.getElementById('incidentTextLabel');
+  if (descriptionLabel) descriptionLabel.textContent = 'What is happening?';
+  const description = document.getElementById('incidentText');
+  if (description) description.placeholder = 'Describe the problem, nearby landmark, how long it has existed, and who is affected…';
+  const locationLabel = document.querySelector('label[for="locationSelect"]');
+  if (locationLabel) locationLabel.textContent = 'Existing demo location (civic mapping not connected)';
+}
+
+async function loadCivicDashboard() {
+  const list = document.getElementById('civicIssuesList');
+  if (list) list.innerHTML = '<div class="text-sm text-slate-500 py-6 text-center">Loading issues…</div>';
+  try {
+    const [issuesResponse, summaryResponse] = await Promise.all([
+      fetch('/api/issues?limit=100'),
+      fetch('/api/dashboard/summary')
+    ]);
+    if (!issuesResponse.ok) throw new Error('Issue feed unavailable');
+    civicIssues = await issuesResponse.json();
+    let summary = {};
+    if (summaryResponse.ok) summary = await summaryResponse.json();
+    const open = civicIssues.filter(i => ['OPEN','ASSIGNED','IN_PROGRESS'].includes(String(i.status).toUpperCase())).length;
+    const resolved = civicIssues.filter(i => ['RESOLVED','CLOSED'].includes(String(i.status).toUpperCase())).length;
+    const urgent = civicIssues.filter(i => ['CRITICAL','HIGH'].includes(String(i.priority_level || i.urgency).toUpperCase()) && !['RESOLVED','CLOSED'].includes(String(i.status).toUpperCase())).length;
+    setTextIfPresent('civicOpenCount', open);
+    setTextIfPresent('civicResolvedCount', resolved);
+    setTextIfPresent('civicUrgentCount', urgent);
+    setTextIfPresent('civicReportCount', summary.total_complaints ?? civicIssues.reduce((sum,i)=>sum+Number(i.complaint_count||1),0));
+    renderCivicIssues();
+  } catch (error) {
+    console.error('Civic dashboard load failed:', error);
+    if (list) list.innerHTML = '<div class="py-6 text-center text-sm text-rose-700">Could not load the issue feed. Check the server connection and retry.</div>';
+    ['civicOpenCount','civicResolvedCount','civicUrgentCount','civicReportCount'].forEach(id=>setTextIfPresent(id,'—'));
+  }
+}
+
+function setTextIfPresent(id, value) {
+  const node = document.getElementById(id);
+  if (node) node.textContent = String(value);
+}
+
+function escapeCivicText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function renderCivicIssues() {
+  const list = document.getElementById('civicIssuesList');
+  if (!list) return;
+  const filter = document.getElementById('civicStatusFilter')?.value || 'all';
+  const items = civicIssues.filter(issue => {
+    const status = String(issue.status || '').toUpperCase();
+    if (filter === 'active') return ['OPEN','ASSIGNED','IN_PROGRESS'].includes(status);
+    if (filter === 'resolved') return ['RESOLVED','CLOSED'].includes(status);
+    return true;
+  });
+  if (!items.length) {
+    list.innerHTML = '<div class="py-8 text-center"><span class="material-symbols-outlined text-3xl text-slate-300">task_alt</span><p class="text-sm font-bold text-slate-700 mt-2">No issues in this view</p><p class="text-xs text-slate-500 mt-1">Try another status filter or refresh.</p></div>';
+    return;
+  }
+  list.innerHTML = items.slice(0,30).map(issue => {
+    const status = String(issue.status || 'OPEN').toUpperCase();
+    const priority = String(issue.priority_level || issue.urgency || 'NORMAL').toUpperCase();
+    const color = ['CRITICAL','HIGH'].includes(priority) ? 'bg-rose-100 text-rose-800' : status === 'RESOLVED' || status === 'CLOSED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+    const title = escapeCivicText(issue.title || issue.description || 'Local issue');
+    const desc = escapeCivicText(issue.description || 'No further details provided.');
+    const place = escapeCivicText(issue.location_name || 'Location not set');
+    const caseId = escapeCivicText(issue.case_id || issue.id || '');
+    return '<article class="civic-issue-row"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><span class="text-[10px] font-extrabold text-slate-400">' + caseId + '</span><span class="rounded-full px-2 py-1 text-[10px] font-bold ' + color + '">' + escapeCivicText(status.replaceAll('_',' ')) + '</span><span class="text-[10px] font-bold text-slate-500">' + escapeCivicText(priority) + '</span></div><h3 class="font-bold text-sm text-slate-900 mt-2">' + title + '</h3><p class="text-xs text-slate-500 mt-1 line-clamp-2">' + desc + '</p><div class="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 mt-2"><span><span class="material-symbols-outlined align-middle text-sm">location_on</span> ' + place + '</span><span><span class="material-symbols-outlined align-middle text-sm">groups</span> ' + Number(issue.complaint_count || 1) + ' reports</span></div></div><div class="text-right shrink-0"><div class="text-[11px] font-bold text-slate-700">' + Number(issue.upvote_count || 0) + ' supports</div><div class="text-[10px] text-slate-400 mt-1">' + escapeCivicText(formatISTTime(issue.updated_at || issue.created_at)) + '</div></div></article>';
+  }).join('');
+}
+
