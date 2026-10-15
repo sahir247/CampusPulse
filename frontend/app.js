@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initApp() {
   setupEventListeners();
+  const initialWorkspace = new URLSearchParams(window.location.search).get('workspace');
   await initAuth();
   await loadRecipients();
   loadDashboardKPIs();
@@ -36,6 +37,7 @@ async function initApp() {
   loadFacultyIssues();
   loadFacultyHotspots();
   triggerNLPPreview();
+  if (initialWorkspace === 'civic') setWorkspaceMode('civic');
 }
 
 function setupEventListeners() {
