@@ -2043,7 +2043,8 @@ function selectCivicCategory(label) {
 }
 
 function openCivicReport() {
-  // Existing report form and complaint API are reused without pretending the demo schema is civic-ready.
+  // Open the existing reporting form in an explicit interim mode. The civic location context
+  // remains visible and is copied into the report text so it is not silently discarded.
   if (workspaceMode !== 'civic') setWorkspaceMode('civic');
   const campus = document.getElementById('campusWorkspace');
   if (campus) campus.style.display = 'block';
@@ -2057,9 +2058,22 @@ function openCivicReport() {
   const descriptionLabel = document.getElementById('incidentTextLabel');
   if (descriptionLabel) descriptionLabel.textContent = 'What is happening?';
   const description = document.getElementById('incidentText');
-  if (description) description.placeholder = 'Describe the problem, nearby landmark, how long it has existed, and who is affected…';
+  if (description) {
+    description.placeholder = 'Describe the problem, nearby landmark, how long it has existed, and who is affected…';
+    const context = getCivicLocationContext();
+    if (context && !description.value.includes('[Local area:')) description.value = '[Local area: ' + context + ']\\n' + description.value;
+  }
   const locationLabel = document.querySelector('label[for="locationSelect"]');
   if (locationLabel) locationLabel.textContent = 'Existing demo location (civic mapping not connected)';
+}
+
+function getCivicLocationContext() {
+  const district = document.getElementById('civicDistrict')?.value || '';
+  const type = document.getElementById('civicBodyType')?.value || '';
+  const body = document.getElementById('civicBodyName')?.selectedOptions?.[0]?.textContent || '';
+  const ward = document.getElementById('civicWard')?.value?.trim() || '';
+  const typeLabel = {panchayat:'Gram Panchayat',municipality:'Municipality',corporation:'Municipal Corporation'}[type] || 'Local body';
+  return [district, typeLabel, body && !body.startsWith('Choose') ? body : '', ward].filter(Boolean).join(' · ');
 }
 
 async function loadCivicDashboard() {
