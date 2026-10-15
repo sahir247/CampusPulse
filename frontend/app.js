@@ -2070,6 +2070,8 @@ function openCivicReport() {
   }
   const locationLabel = document.querySelector('label[for="locationSelect"]');
   if (locationLabel) locationLabel.textContent = 'Existing demo location (civic mapping not connected)';
+  const campusLocationWrap = document.getElementById('locationSelect')?.closest('div.flex.flex-col');
+  if (campusLocationWrap) campusLocationWrap.style.display = 'none';
 }
 
 function getCivicLocationContext() {
