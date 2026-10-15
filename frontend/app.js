@@ -643,6 +643,11 @@ async function handleFormSubmit(event) {
   const locSelect = document.getElementById('locationSelect');
   const btn = document.getElementById('btnSubmitComplaint');
 
+  if (workspaceMode === 'civic' && textInput && !textInput.value.includes('[Local area:')) {
+    const context = getCivicLocationContext();
+    if (context) textInput.value = '[Local area: ' + context + ']\\n' + textInput.value;
+  }
+
   const text = textInput.value.trim();
   if (!text) {
     showQuickToast('Please enter a description of the issue.', 'warning');
@@ -2026,19 +2031,17 @@ function updateCivicBodyOptions() {
 
 function selectCivicCategory(label) {
   const description = document.getElementById('incidentText');
-  const location = document.getElementById('locationSelect');
-  const reportView = document.getElementById('viewStudentReport');
+  openCivicReport();
   if (description) {
     const existing = description.value.trim();
-    if (!existing || existing === 'No water in Block C since morning, washrooms unusable on floor 2.') {
-      description.value = label + ': ';
-    } else if (!existing.toLowerCase().startsWith(label.toLowerCase())) {
-      description.value = label + ': ' + existing;
-    }
+    const defaults = ['No water in Block C since morning, washrooms unusable on floor 2.'];
+    const next = (!existing || defaults.includes(existing)) ? label + ': ' : (existing.toLowerCase().startsWith(label.toLowerCase()) ? existing : label + ': ' + existing);
+    description.value = next;
+    description.focus();
+    description.scrollIntoView({behavior:'smooth',block:'center'});
   }
-  if (location) location.value = 'science-quad';
-  openCivicReport();
-  if (description) { description.focus(); description.scrollIntoView({behavior:'smooth',block:'center'}); }
+  // Do not silently choose a campus location for a civic report. The civic jurisdiction context
+  // is passed through as text until the backend has canonical civic location IDs.
   showQuickToast('Category selected. Add the local details before submitting.', 'info');
 }
 
